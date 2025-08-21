@@ -1,0 +1,45 @@
+# Full evaluation configuration for temporal awareness experiments
+
+# Dataset and output paths
+data_path: 'data/TIME10k'
+output_dir: 'results/full_evaluation'
+device: 'cuda'  # or 'cpu'
+
+# Experiment configurations
+experiments:
+  # Time Probing: Direct prompt-based temporal inference
+  time_probing:
+    enabled: true
+    models:
+      - 'clip-vit-b32'
+      - 'clip-vit-l14'
+      - 'eva-clip-l14'
+      - 'eva-clip-l14-336'
+    prompts:
+      - 'P7'  # Best performing: "was built in the year {year}"
+      - 'P5'  # Second best: "was first introduced in the year {year}"
+  
+  # UMAP Timeline: Learn 1D manifold representation
+  timeline_umap:
+    enabled: true
+    models:
+      - 'clip-vit-b32'
+      - 'eva-clip-l14-336'
+    optimize_params: false  # Use paper-optimized parameters (false) or optimize (true)
+    use_precomputed: true   # Use precomputed embeddings
+    embeddings_path: 'encodings'
+    # Paper-optimized parameters (used when optimize_params=false):
+    # CLIP: n_neighbors=38, min_dist=0.7446
+    # EVA-CLIP: n_neighbors=21, min_dist=0.1040
+  
+  # Bézier Timeline: Smooth curve representation
+  timeline_bezier:
+    enabled: true
+    models:
+      - 'clip-vit-b32'
+      - 'eva-clip-l14-336'
+    num_control_points: 200
+    reduce_dim: 13  # Optimal dimension from paper
+    method: 'interpolation'  # or 'nearest_neighbor'
+    use_precomputed: true
+    embeddings_path: 'encodings'
