@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Data (images should be downloaded via data/download.py)
+data/TIME10k/
+data/TIME10k.zip
+
+# Results (generated, not tracked)
+results/
+
+# Models (installed via install_models.sh)
+models/ImageBind/
+models/ViT-Lens/
+models/EVA-CLIP/
+weights/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+*.log

@@ -1,0 +1,41 @@
+from setuptools import setup, find_packages
+
+setup(
+    name='timeline-vlm',
+    version='1.0.0',
+    description='A Matter of Time: Revealing the Structure of Time in Vision-Language Models',
+    author='Nidham Tekaya, Manuela Waldner, Matthias Zeppelzauer',
+    author_email='nidham.tekaya@fhstp.ac.at',
+    url='https://github.com/tekayanidham/timeline-vlm',
+    packages=find_packages(),
+    python_requires='>=3.8',
+    install_requires=[
+        'torch>=1.10.0',
+        'torchvision>=0.11.0',
+        'numpy>=1.19.0',
+        'scipy>=1.5.0',
+        'scikit-learn>=0.24.0',
+        'Pillow>=8.0.0',
+        'tqdm>=4.62.0',
+        'pandas>=1.3.0',
+        'open-clip-torch>=2.24.0',
+        'umap-learn>=0.5.0',
+        'optuna>=3.0.0',
+        'matplotlib>=3.3.0',
+        'seaborn>=0.11.0',
+        'tabulate>=0.8.9',
+        'requests>=2.25.0',
+        'pyyaml>=5.4.0',
+    ],
+    extras_require={
+        'clip': ['clip @ git+https://github.com/openai/CLIP.git'],
+    },
+    license='MIT',
+    classifiers=[
+        'Development Status :: 4 - Beta',
+        'Intended Audience :: Science/Research',
+        'License :: OSI Approved :: MIT License',
+        'Programming Language :: Python :: 3',
+        'Topic :: Scientific/Engineering :: Artificial Intelligence',
+    ],
+)

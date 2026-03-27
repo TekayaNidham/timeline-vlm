@@ -1,45 +1,97 @@
-# Full evaluation configuration for temporal awareness experiments
+# Full evaluation configuration
+# Reproduces all tables and figures from the paper
+# Requires: GPU with 32GB+ VRAM, all models installed
 
-# Dataset and output paths
-data_path: 'data/TIME10k'
+device: 'cuda'
 output_dir: 'results/full_evaluation'
-device: 'cuda'  # or 'cpu'
+data_path: 'data/TIME10k'
+csv_path: 'data/time10k.csv'
 
-# Experiment configurations
-experiments:
-  # Time Probing: Direct prompt-based temporal inference
-  time_probing:
-    enabled: true
-    models:
-      - 'clip-vit-b32'
-      - 'clip-vit-l14'
-      - 'eva-clip-l14'
-      - 'eva-clip-l14-336'
-    prompts:
-      - 'P7'  # Best performing: "was built in the year {year}"
-      - 'P5'  # Second best: "was first introduced in the year {year}"
-  
-  # UMAP Timeline: Learn 1D manifold representation
-  timeline_umap:
-    enabled: true
-    models:
-      - 'clip-vit-b32'
-      - 'eva-clip-l14-336'
-    optimize_params: false  # Use paper-optimized parameters (false) or optimize (true)
-    use_precomputed: true   # Use precomputed embeddings
-    embeddings_path: 'encodings'
-    # Paper-optimized parameters (used when optimize_params=false):
-    # CLIP: n_neighbors=38, min_dist=0.7446
-    # EVA-CLIP: n_neighbors=21, min_dist=0.1040
-  
-  # Bézier Timeline: Smooth curve representation
-  timeline_bezier:
-    enabled: true
-    models:
-      - 'clip-vit-b32'
-      - 'eva-clip-l14-336'
-    num_control_points: 200
-    reduce_dim: 13  # Optimal dimension from paper
-    method: 'interpolation'  # or 'nearest_neighbor'
-    use_precomputed: true
-    embeddings_path: 'encodings'
+# Table 1: Time probing across all 37 VLMs with P7
+time_probing:
+  enabled: true
+  prompt: 'P7'
+  use_precomputed: false  # Set true to use precomputed embeddings
+  embeddings_path: 'encodings'
+  models:
+    # CLIP (9 models)
+    - clip-rn50
+    - clip-rn101
+    - clip-rn50x4
+    - clip-rn50x16
+    - clip-rn50x64
+    - clip-vit-b16
+    - clip-vit-b32
+    - clip-vit-l14
+    - clip-vit-l14-336
+    # EVA-CLIP (5 models)
+    - eva01-clip-g14
+    - eva01-clip-g14-plus
+    - eva-clip-b16
+    - eva-clip-l14
+    - eva-clip-l14-336
+    # EVA-CLIP-18B (3 models)
+    - eva-clip-8b
+    - eva-clip-8b-plus
+    - eva-clip-18b
+    # ImageBind
+    - imagebind
+    # CoCa
+    - coca-vit-l14
+    # MobileCLIP
+    - mobileclip-s1
+    # ViTamin
+    - vitamin-s
+    - vitamin-xl-384
+    # OpenCLIP (10 models)
+    - openclip-rn50-quickgelu
+    - openclip-vit-b16-metaclip
+    - openclip-vit-b16-plus-240
+    - openclip-vit-b16-quickgelu
+    - openclip-xlm-roberta-b32
+    - openclip-vit-b32
+    - openclip-vit-bigg14
+    - openclip-vit-bigg14-quickgelu
+    - openclip-vit-g14
+    - openclip-convnext-xxlarge
+    # CLIPA
+    - clipa-vit-h14-336
+    # SigLIP (3 models)
+    - siglip-vit-l16-384
+    - siglip-so400m-384
+    - siglip-nllb-large
+    # ViT-Lens
+    - vit-lens
+
+# Table 2: Prompt sensitivity (P1-P9) for CLIP and EVA-CLIP
+prompt_sensitivity:
+  enabled: true
+  embeddings_path: 'encodings'
+  models:
+    - clip-vit-b32
+    - eva-clip-l14-336
+  prompts: ['P1', 'P2', 'P3', 'P4', 'P5', 'P6', 'P7', 'P8', 'P9']
+
+# Table 4: Chronological progression analysis
+embedding_analysis:
+  enabled: true
+  embeddings_path: 'encodings'
+
+# Table 5: Timeline comparison (Time Probing vs UMAP vs Bézier)
+timeline_comparison:
+  enabled: true
+  embeddings_path: 'encodings'
+  reduce_dim: 13
+  num_control_points: 200
+  models:
+    - clip-vit-b32
+    - eva-clip-b16
+
+# Figure 6: Dimension analysis
+dimension_analysis:
+  enabled: true
+  embeddings_path: 'encodings'
+  max_dim: 50
+  models:
+    - clip-vit-b32
+    - eva-clip-l14-336

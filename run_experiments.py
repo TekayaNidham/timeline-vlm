@@ -1,351 +1,454 @@
 """
-Main experiment runner for temporal awareness evaluation
-Orchestrates time probing and timeline modeling experiments
+Main experiment runner for reproducing all results from the paper:
+
+"A Matter of Time: Revealing the Structure of Time in Vision-Language Models"
+Tekaya, Waldner, Zeppelzauer (MM '25)
+
+Experiments:
+1. Time Probing (Table 1): MAE & TAI for 37 VLMs with P7 prompt
+2. Prompt Sensitivity (Table 2): P1-P9 for CLIP and EVA-CLIP
+3. Class-wise Analysis (Table 3): Per-category results for EVA-CLIP
+4. Chronological Progression (Table 4): KPCA & UMAP 1D ranking metrics
+5. Timeline Comparison (Table 5): Time Probing vs UMAP vs 4 Bézier variants
+6. Dimension Analysis (Figure 6): MAE per KPCA dimension
+
+Usage:
+    # Full evaluation (requires GPU and all models)
+    python run_experiments.py --config configs/full_evaluation.yaml
+
+    # Lightweight test (CPU-friendly, subset of models)
+    python run_experiments.py --config configs/lightweight_test.yaml
+
+    # Single experiment
+    python run_experiments.py --experiment time_probing --models clip-vit-b32
+
+    # List available models
+    python run_experiments.py --list_models
 """
 
 import os
 import sys
 import argparse
-import yaml
 import json
+import yaml
+import time
+import numpy as np
 from datetime import datetime
 from pathlib import Path
+from tabulate import tabulate
 
-# Add current directory to path for imports
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from evaluation.time_probing import TimeProbing
-from evaluation.timeline_umap import UMAPTimeline
-from evaluation.timeline_bezier import BezierTimeline
-from data.dataset import TIME10kDataset
-from utils.prompts import get_prompt_templates, get_best_prompts_by_model
-from utils.metrics import print_evaluation_summary
-from models.model_loader import get_available_models
+from models.model_loader import get_available_models, MODEL_REGISTRY
+from utils.prompts import get_prompt_templates
+from utils.metrics import (print_evaluation_summary, calculate_mae_per_class,
+                           mean_absolute_error, calculate_TAI)
 
 
 class ExperimentRunner:
-    """Main experiment orchestrator"""
-    
-    def __init__(self, config_path=None):
-        """Initialize experiment runner with optional config"""
-        if config_path and os.path.exists(config_path):
-            with open(config_path, 'r') as f:
-                self.config = yaml.safe_load(f)
-        else:
-            self.config = self.get_default_config()
-        
-        # Create output directory
-        self.output_dir = Path(self.config['output_dir'])
+    """Orchestrates all paper experiments."""
+
+    def __init__(self, config):
+        self.config = config
+        self.output_dir = Path(config.get('output_dir', 'results'))
         self.output_dir.mkdir(parents=True, exist_ok=True)
-        
-        # Create results file
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        self.results_file = self.output_dir / f"results_{timestamp}.json"
-        self.results = []
-    
-    def get_default_config(self):
-        """Get default configuration"""
-        return {
-            'data_path': 'data/TIME10k',
-            'output_dir': 'results',
-            'device': 'cuda',
-            'experiments': {
-                'time_probing': {
-                    'enabled': True,
-                    'models': ['clip-vit-b32', 'eva-clip-l14'],
-                    'prompts': ['P7']  # Best performing prompt
-                },
-                'timeline_umap': {
-                    'enabled': True,
-                    'models': ['clip-vit-b32', 'eva-clip-l14'],
-                    'optimize_params': False,
-                    'use_precomputed': True,
-                    'embeddings_path': 'encodings'
-                },
-                'timeline_bezier': {
-                    'enabled': True,
-                    'models': ['clip-vit-b32', 'eva-clip-l14'],
-                    'num_control_points': 200,
-                    'reduce_dim': 13,
-                    'method': 'interpolation',
-                    'use_precomputed': True,
-                    'embeddings_path': 'encodings'
-                }
-            }
-        }
-    
+        self.device = config.get('device', 'cuda')
+        self.results = {}
+        self.timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+    # ── Table 1: Time Probing across all VLMs ────────────────────────
+
     def run_time_probing(self):
-        """Run time probing experiments"""
-        if not self.config['experiments']['time_probing']['enabled']:
+        """Table 1: Evaluate time probing with P7 for all configured models."""
+        cfg = self.config.get('time_probing', {})
+        if not cfg.get('enabled', True):
             return
-        
-        print("\n" + "="*80)
-        print("Running Time Probing Experiments")
-        print("="*80)
-        
-        # Load dataset
-        dataset = TIME10kDataset(self.config['data_path'])
+
+        from evaluation.time_probing import TimeProbing
+        from evaluation.embeddings import load_precomputed_embeddings
+
+        models = cfg.get('models', ['clip-vit-b32'])
+        prompt_id = cfg.get('prompt', 'P7')
         prompts = get_prompt_templates()
-        
-        for model_name in self.config['experiments']['time_probing']['models']:
-            for prompt_id in self.config['experiments']['time_probing']['prompts']:
-                print(f"\nEvaluating {model_name} with prompt {prompt_id}...")
-                
-                try:
-                    # Initialize evaluator
-                    evaluator = TimeProbing(model_name, self.config['device'])
-                    
-                    # Get prompt template
-                    prompt_template = prompts[prompt_id]
-                    
-                    # Run evaluation
-                    results = evaluator.evaluate(dataset, prompt_template)
-                    
-                    # Store results
-                    experiment_result = {
-                        'experiment': 'time_probing',
-                        'model': model_name,
-                        'prompt': prompt_id,
-                        'mae': results['mae'],
-                        'tai': results['tai']
-                    }
-                    self.results.append(experiment_result)
-                    
-                    # Print summary
-                    print_evaluation_summary(
-                        results['predictions'], 
-                        results['ground_truths'],
-                        f"{model_name} ({prompt_id})"
+        prompt_template = prompts[prompt_id]
+        embeddings_path = cfg.get('embeddings_path', 'encodings')
+        use_precomputed = cfg.get('use_precomputed', True)
+
+        print("\n" + "=" * 70)
+        print(f"Table 1: Time Probing ({prompt_id})")
+        print("=" * 70)
+
+        results = []
+        for model_name in models:
+            print(f"\n  [{model_name}]")
+            try:
+                if use_precomputed:
+                    data = load_precomputed_embeddings(
+                        embeddings_path, model_name
                     )
-                    
-                except Exception as e:
-                    print(f"Error evaluating {model_name}: {e}")
-                    continue
-    
-    def run_timeline_umap(self):
-        """Run UMAP timeline experiments"""
-        if not self.config['experiments']['timeline_umap']['enabled']:
-            return
-        
-        print("\n" + "="*80)
-        print("Running UMAP Timeline Experiments")
-        print("="*80)
-        
-        umap_config = self.config['experiments']['timeline_umap']
-        
-        if not umap_config['use_precomputed']:
-            print("Warning: Real-time embedding computation not implemented.")
-            print("Please use precomputed embeddings.")
-            return
-        
-        import numpy as np
-        
-        for model_name in umap_config['models']:
-            print(f"\nEvaluating UMAP timeline for {model_name}...")
-            
-            try:
-                # Load precomputed embeddings
-                if 'eva' in model_name.lower():
-                    embeddings_dir = Path(umap_config['embeddings_path']) / 'eva'
-                    timeline_emb = np.load(embeddings_dir / 'eva_timeline_embeddings.npy')
-                    image_emb = np.load(embeddings_dir / 'eva_image_embeddings.npy')
-                    with open(embeddings_dir / 'eva_labels_timeline.txt', 'r') as f:
-                        timeline_years = [int(line.strip()) for line in f]
-                    with open(embeddings_dir / 'labels.txt', 'r') as f:
-                        image_years = [int(line.strip()) for line in f]
+                    evaluator = TimeProbing(model_name, self.device)
+                    time_emb = evaluator.encode_time_embeddings(
+                        data['timeline_years'], prompt_template
+                    )
+                    res = evaluator.evaluate_from_embeddings(
+                        data['image_emb'], data['image_years'],
+                        time_emb, data['timeline_years'],
+                    )
                 else:
-                    embeddings_dir = Path(umap_config['embeddings_path'])
-                    timeline_emb = np.load(embeddings_dir / 'timeline_embeddings.npy')
-                    image_emb = np.load(embeddings_dir / 'image_embeddings.npy')
-                    with open(embeddings_dir / 'timeline_labels.txt', 'r') as f:
-                        timeline_years = [int(line.strip()) for line in f]
-                    with open(embeddings_dir / 'labels.txt', 'r') as f:
-                        image_years = [int(line.strip()) for line in f]
-                
-                # Create and fit timeline
-                timeline_model = UMAPTimeline()
-                
-                timeline_model.fit(
-                    timeline_emb, 
-                    timeline_years,
-                    optimize=umap_config['optimize_params'],
-                    params=None,  # Let fit() determine based on model_name
-                    model_name=model_name
-                )
-                
-                # Evaluate
-                results = timeline_model.evaluate(image_emb, np.array(image_years))
-                
-                # Store results
-                experiment_result = {
-                    'experiment': 'timeline_umap',
+                    from data.dataset import TIME10kDataset
+                    dataset = TIME10kDataset(
+                        self.config.get('data_path', 'data/TIME10k'),
+                        csv_path=self.config.get('csv_path', 'data/time10k.csv'),
+                    )
+                    evaluator = TimeProbing(model_name, self.device)
+                    res = evaluator.evaluate(dataset, prompt_template)
+
+                results.append({
                     'model': model_name,
-                    'mae': results['mae'],
-                    'tai': results['tai']
-                }
-                self.results.append(experiment_result)
-                
-                # Print summary
-                print_evaluation_summary(
-                    results['predictions'],
-                    image_years,
-                    f"{model_name} (UMAP Timeline)"
-                )
-                
+                    'prompt': prompt_id,
+                    'mae': res['mae'],
+                    'tai': res['tai'],
+                    'timing': res.get('timing', {}),
+                })
+                print(f"  MAE: {res['mae']:.2f}, TAI: {res['tai']:.3f}")
+
             except Exception as e:
-                print(f"Error with UMAP timeline for {model_name}: {e}")
+                print(f"  ERROR: {e}")
                 continue
-    
-    def run_timeline_bezier(self):
-        """Run Bézier timeline experiments"""
-        if not self.config['experiments']['timeline_bezier']['enabled']:
+
+        self.results['time_probing'] = results
+        self._print_table("Time Probing Results", results,
+                          ['model', 'mae', 'tai'])
+        return results
+
+    # ── Table 2: Prompt Sensitivity ──────────────────────────────────
+
+    def run_prompt_sensitivity(self):
+        """Table 2: Evaluate P1-P9 for CLIP and EVA-CLIP."""
+        cfg = self.config.get('prompt_sensitivity', {})
+        if not cfg.get('enabled', False):
             return
-        
-        print("\n" + "="*80)
-        print("Running Bézier Timeline Experiments")
-        print("="*80)
-        
-        bezier_config = self.config['experiments']['timeline_bezier']
-        
-        if not bezier_config['use_precomputed']:
-            print("Warning: Real-time embedding computation not implemented.")
-            print("Please use precomputed embeddings.")
-            return
-        
-        import numpy as np
-        
-        for model_name in bezier_config['models']:
-            print(f"\nEvaluating Bézier timeline for {model_name}...")
-            
+
+        from evaluation.time_probing import TimeProbing
+        from evaluation.embeddings import load_precomputed_embeddings
+
+        models = cfg.get('models', ['clip-vit-b32', 'eva-clip-l14-336'])
+        prompt_ids = cfg.get('prompts', [f'P{i}' for i in range(1, 10)])
+        prompts = get_prompt_templates()
+        embeddings_path = cfg.get('embeddings_path', 'encodings')
+
+        print("\n" + "=" * 70)
+        print("Table 2: Prompt Sensitivity Analysis")
+        print("=" * 70)
+
+        results = []
+        for model_name in models:
+            print(f"\n  [{model_name}]")
             try:
-                # Load precomputed embeddings
-                if 'eva' in model_name.lower():
-                    embeddings_dir = Path(bezier_config['embeddings_path']) / 'eva'
-                    timeline_emb = np.load(embeddings_dir / 'eva_timeline_embeddings.npy')
-                    image_emb = np.load(embeddings_dir / 'eva_image_embeddings.npy')
-                    with open(embeddings_dir / 'eva_labels_timeline.txt', 'r') as f:
-                        timeline_years = [int(line.strip()) for line in f]
-                    with open(embeddings_dir / 'labels.txt', 'r') as f:
-                        image_years = [int(line.strip()) for line in f]
-                else:
-                    embeddings_dir = Path(bezier_config['embeddings_path'])
-                    timeline_emb = np.load(embeddings_dir / 'timeline_embeddings.npy')
-                    image_emb = np.load(embeddings_dir / 'image_embeddings.npy')
-                    with open(embeddings_dir / 'timeline_labels.txt', 'r') as f:
-                        timeline_years = [int(line.strip()) for line in f]
-                    with open(embeddings_dir / 'labels.txt', 'r') as f:
-                        image_years = [int(line.strip()) for line in f]
-                
-                # Create and fit timeline
-                timeline_model = BezierTimeline(
-                    num_control_points=bezier_config['num_control_points']
+                data = load_precomputed_embeddings(
+                    embeddings_path, model_name
                 )
-                
-                timeline_model.fit(
-                    timeline_emb,
-                    timeline_years,
-                    reduce_dim=bezier_config['reduce_dim']
-                )
-                
-                # Evaluate
-                results = timeline_model.evaluate(
-                    image_emb,
-                    np.array(image_years),
-                    method=bezier_config['method']
-                )
-                
-                # Store results
-                experiment_result = {
-                    'experiment': 'timeline_bezier',
-                    'model': model_name,
-                    'method': bezier_config['method'],
-                    'mae': results['mae'],
-                    'tai': results['tai']
-                }
-                self.results.append(experiment_result)
-                
-                # Print summary
-                print_evaluation_summary(
-                    results['predictions'],
-                    image_years,
-                    f"{model_name} (Bézier Timeline - {bezier_config['method']})"
-                )
-                
+                evaluator = TimeProbing(model_name, self.device)
+
+                for pid in prompt_ids:
+                    time_emb = evaluator.encode_time_embeddings(
+                        data['timeline_years'], prompts[pid]
+                    )
+                    res = evaluator.evaluate_from_embeddings(
+                        data['image_emb'], data['image_years'],
+                        time_emb, data['timeline_years'],
+                    )
+                    results.append({
+                        'model': model_name, 'prompt': pid,
+                        'mae': res['mae'], 'tai': res['tai'],
+                    })
+                    print(f"  {pid}: MAE={res['mae']:.2f}, TAI={res['tai']:.3f}")
+
             except Exception as e:
-                print(f"Error with Bézier timeline for {model_name}: {e}")
+                print(f"  ERROR: {e}")
                 continue
-    
+
+        self.results['prompt_sensitivity'] = results
+        return results
+
+    # ── Table 4: Chronological Progression in 1D ─────────────────────
+
+    def run_embedding_analysis(self):
+        """Table 4: KPCA and UMAP 1D ranking metrics."""
+        cfg = self.config.get('embedding_analysis', {})
+        if not cfg.get('enabled', False):
+            return
+
+        from evaluation.embedding_space import generate_table4
+        from evaluation.embeddings import load_precomputed_embeddings
+
+        embeddings_path = cfg.get('embeddings_path', 'encodings')
+
+        print("\n" + "=" * 70)
+        print("Table 4: Chronological Progression in 1D")
+        print("=" * 70)
+
+        try:
+            clip_data = load_precomputed_embeddings(embeddings_path, 'clip-vit-b32')
+            eva_data = load_precomputed_embeddings(embeddings_path, 'eva-clip-l14-336')
+            results = generate_table4(
+                clip_data['timeline_emb'], clip_data['timeline_years'],
+                eva_data['timeline_emb'], eva_data['timeline_years'],
+            )
+            self.results['embedding_analysis'] = {
+                str(k): v for k, v in results.items()
+            }
+        except Exception as e:
+            print(f"ERROR: {e}")
+
+    # ── Table 5: Timeline Comparison ─────────────────────────────────
+
+    def run_timeline_comparison(self):
+        """Table 5: Time Probing vs UMAP vs 4 Bézier variants."""
+        cfg = self.config.get('timeline_comparison', {})
+        if not cfg.get('enabled', False):
+            return
+
+        from evaluation.time_probing import TimeProbing
+        from evaluation.timeline_umap import UMAPTimeline
+        from evaluation.timeline_bezier import BezierTimeline
+        from evaluation.embeddings import load_precomputed_embeddings
+
+        models = cfg.get('models', ['clip-vit-b32'])
+        embeddings_path = cfg.get('embeddings_path', 'encodings')
+        reduce_dim = cfg.get('reduce_dim', 13)
+        num_control_points = cfg.get('num_control_points', 200)
+        prompts = get_prompt_templates()
+
+        print("\n" + "=" * 70)
+        print("Table 5: Timeline Comparison")
+        print("=" * 70)
+
+        all_results = {}
+        for model_name in models:
+            print(f"\n  [{model_name}]")
+            try:
+                data = load_precomputed_embeddings(
+                    embeddings_path, model_name
+                )
+                model_results = {}
+
+                # Time Probing
+                print("  Time Probing...")
+                evaluator = TimeProbing(model_name, self.device)
+                time_emb = evaluator.encode_time_embeddings(
+                    data['timeline_years'], prompts['P7']
+                )
+                tp_res = evaluator.evaluate_from_embeddings(
+                    data['image_emb'], data['image_years'],
+                    time_emb, data['timeline_years'],
+                )
+                model_results['Time Probing'] = tp_res
+
+                # UMAP
+                print("  UMAP...")
+                umap_model = UMAPTimeline()
+                umap_model.fit(
+                    data['timeline_emb'], data['timeline_years'],
+                    model_name=model_name,
+                )
+                umap_res = umap_model.evaluate(
+                    data['image_emb'], data['image_years']
+                )
+                model_results['UMAP'] = umap_res
+
+                # Bézier (all 4 variants)
+                print("  Bézier variants...")
+                bezier = BezierTimeline(
+                    num_control_points=num_control_points
+                )
+                bezier_results = bezier.evaluate_all_variants(
+                    data['timeline_emb'], data['timeline_years'],
+                    data['image_emb'], data['image_years'],
+                    reduce_dim=reduce_dim,
+                )
+                model_results.update(bezier_results)
+
+                all_results[model_name] = model_results
+
+                # Print summary
+                print(f"\n  {'Method':<30} {'MAE':>8} {'TAI':>8} {'ms/img':>10}")
+                print(f"  {'-'*58}")
+                for method, res in model_results.items():
+                    ms = res.get('timing', {}).get('avg_per_image_ms', 0)
+                    print(f"  {method:<30} {res['mae']:>8.2f} "
+                          f"{res['tai']:>8.3f} {ms:>10.2f}")
+
+            except Exception as e:
+                print(f"  ERROR: {e}")
+                import traceback
+                traceback.print_exc()
+                continue
+
+        self.results['timeline_comparison'] = {
+            model: {method: {'mae': r['mae'], 'tai': r['tai']}
+                    for method, r in methods.items()}
+            for model, methods in all_results.items()
+        }
+        return all_results
+
+    # ── Figure 6: Dimension Analysis ─────────────────────────────────
+
+    def run_dimension_analysis(self):
+        """Figure 6: MAE per KPCA dimension."""
+        cfg = self.config.get('dimension_analysis', {})
+        if not cfg.get('enabled', False):
+            return
+
+        from evaluation.embedding_space import analyze_dimension_sweep
+        from evaluation.embeddings import load_precomputed_embeddings
+
+        embeddings_path = cfg.get('embeddings_path', 'encodings')
+        max_dim = cfg.get('max_dim', 50)
+
+        print("\n" + "=" * 70)
+        print("Figure 6: Dimension Analysis")
+        print("=" * 70)
+
+        for model_name in cfg.get('models', ['clip-vit-b32']):
+            try:
+                data = load_precomputed_embeddings(
+                    embeddings_path, model_name
+                )
+                results = analyze_dimension_sweep(
+                    data['timeline_emb'], data['timeline_years'],
+                    data['image_emb'], data['image_years'],
+                    max_dim=max_dim,
+                )
+                self.results[f'dimension_sweep_{model_name}'] = {
+                    str(k): v for k, v in results.items()
+                }
+            except Exception as e:
+                print(f"  ERROR for {model_name}: {e}")
+
+    # ── Utilities ────────────────────────────────────────────────────
+
+    def _print_table(self, title, results, columns):
+        """Print a formatted results table."""
+        if not results:
+            return
+        headers = [c.upper() for c in columns]
+        rows = [[r.get(c, '') for c in columns] for r in results]
+        # Format numeric values
+        for row in rows:
+            for i, val in enumerate(row):
+                if isinstance(val, float):
+                    row[i] = f"{val:.3f}" if val < 1 else f"{val:.2f}"
+        print(f"\n{title}:")
+        print(tabulate(rows, headers=headers, tablefmt='grid'))
+
     def save_results(self):
-        """Save all results to file"""
-        with open(self.results_file, 'w') as f:
-            json.dump(self.results, f, indent=2)
-        
-        print(f"\nResults saved to: {self.results_file}")
-        
-        # Print summary table
-        print("\n" + "="*80)
-        print("Summary of All Results")
-        print("="*80)
-        
-        print(f"{'Experiment':<20} {'Model':<20} {'MAE':<10} {'TAI':<10}")
-        print("-"*60)
-        
-        for result in self.results:
-            exp_name = result['experiment']
-            if exp_name == 'time_probing':
-                exp_name += f" ({result['prompt']})"
-            elif exp_name == 'timeline_bezier':
-                exp_name += f" ({result['method'][:3]})"
-            
-            print(f"{exp_name:<20} {result['model']:<20} "
-                  f"{result['mae']:<10.2f} {result['tai']:<10.3f}")
-    
+        """Save all results to JSON."""
+        output_path = self.output_dir / f"results_{self.timestamp}.json"
+        with open(output_path, 'w') as f:
+            json.dump(self.results, f, indent=2, default=str)
+        print(f"\nResults saved to {output_path}")
+
     def run_all(self):
-        """Run all enabled experiments"""
-        print("Starting temporal awareness experiments...")
-        print(f"Configuration: {self.config}")
-        
-        # Run experiments
+        """Run all enabled experiments."""
+        t0 = time.time()
+        print(f"Starting experiments at {self.timestamp}")
+        print(f"Device: {self.device}")
+        print(f"Output: {self.output_dir}")
+
         self.run_time_probing()
-        self.run_timeline_umap()
-        self.run_timeline_bezier()
-        
-        # Save results
+        self.run_prompt_sensitivity()
+        self.run_embedding_analysis()
+        self.run_timeline_comparison()
+        self.run_dimension_analysis()
+
         self.save_results()
-        
-        print("\nAll experiments completed!")
+
+        elapsed = time.time() - t0
+        print(f"\nAll experiments completed in {elapsed:.0f}s")
+
+
+def load_config(path):
+    """Load YAML configuration file."""
+    with open(path) as f:
+        return yaml.safe_load(f)
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Run temporal awareness experiments')
-    parser.add_argument('--config', type=str, help='Path to configuration file')
-    parser.add_argument('--data_path', type=str, help='Override data path')
-    parser.add_argument('--output_dir', type=str, help='Override output directory')
-    parser.add_argument('--device', type=str, choices=['cuda', 'cpu'], 
-                        help='Override device')
+    parser = argparse.ArgumentParser(
+        description='Run temporal awareness experiments'
+    )
+    parser.add_argument('--config', type=str,
+                        help='Path to YAML config file')
+    parser.add_argument('--experiment', type=str,
+                        choices=['time_probing', 'prompt_sensitivity',
+                                 'embedding_analysis', 'timeline_comparison',
+                                 'dimension_analysis'],
+                        help='Run a single experiment')
+    parser.add_argument('--models', nargs='+',
+                        help='Override model list')
+    parser.add_argument('--data_path', type=str,
+                        help='Override dataset path')
+    parser.add_argument('--embeddings_path', type=str,
+                        help='Override embeddings path')
+    parser.add_argument('--output_dir', type=str, default='results',
+                        help='Output directory')
+    parser.add_argument('--device', type=str, default='cuda',
+                        choices=['cuda', 'cpu'])
     parser.add_argument('--list_models', action='store_true',
-                        help='List available models')
-    
+                        help='List all available models')
+
     args = parser.parse_args()
-    
+
     if args.list_models:
-        print("Available models:")
-        for model in get_available_models():
-            print(f"  - {model}")
+        print(f"Available models ({len(MODEL_REGISTRY)}):\n")
+        for key in get_available_models():
+            family, backbone, pretrained = MODEL_REGISTRY[key]
+            print(f"  {key:<40} {backbone}")
         return
-    
-    # Create runner
-    runner = ExperimentRunner(args.config)
-    
-    # Override config if needed
-    if args.data_path:
-        runner.config['data_path'] = args.data_path
-    if args.output_dir:
-        runner.config['output_dir'] = args.output_dir
+
+    # Build config
+    if args.config:
+        config = load_config(args.config)
+    else:
+        # Default config for quick testing
+        config = {
+            'device': args.device,
+            'output_dir': args.output_dir,
+            'data_path': args.data_path or 'data/TIME10k',
+            'csv_path': 'data/time10k.csv',
+            'time_probing': {
+                'enabled': True,
+                'models': args.models or ['clip-vit-b32'],
+                'prompt': 'P7',
+                'use_precomputed': True,
+                'embeddings_path': args.embeddings_path or 'encodings',
+            },
+            'prompt_sensitivity': {'enabled': False},
+            'embedding_analysis': {'enabled': False},
+            'timeline_comparison': {'enabled': False},
+            'dimension_analysis': {'enabled': False},
+        }
+
+    # Apply overrides
     if args.device:
-        runner.config['device'] = args.device
-    
-    # Run experiments
+        config['device'] = args.device
+    if args.output_dir:
+        config['output_dir'] = args.output_dir
+
+    # Enable single experiment if specified
+    if args.experiment:
+        for exp in ['time_probing', 'prompt_sensitivity', 'embedding_analysis',
+                     'timeline_comparison', 'dimension_analysis']:
+            if exp not in config:
+                config[exp] = {}
+            config[exp]['enabled'] = (exp == args.experiment)
+        if args.models:
+            config[args.experiment]['models'] = args.models
+        if args.embeddings_path:
+            config[args.experiment]['embeddings_path'] = args.embeddings_path
+
+    runner = ExperimentRunner(config)
     runner.run_all()
 
 

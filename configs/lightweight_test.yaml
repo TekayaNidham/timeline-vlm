@@ -1,0 +1,47 @@
+# Lightweight test configuration
+# Runs on CPU with precomputed embeddings only (no model loading needed for UMAP/Bézier)
+# For quick validation that all pipelines work correctly
+
+device: 'cpu'
+output_dir: 'results/lightweight_test'
+data_path: 'data/TIME10k'
+csv_path: 'data/time10k.csv'
+
+# Time probing with smallest CLIP model
+time_probing:
+  enabled: true
+  prompt: 'P7'
+  use_precomputed: true
+  embeddings_path: 'encodings'
+  models:
+    - clip-vit-b32
+
+# Prompt sensitivity with precomputed embeddings
+prompt_sensitivity:
+  enabled: true
+  embeddings_path: 'encodings'
+  models:
+    - clip-vit-b32
+  prompts: ['P1', 'P7', 'P9']  # Subset for speed
+
+# Embedding space analysis
+embedding_analysis:
+  enabled: true
+  embeddings_path: 'encodings'
+
+# Timeline comparison
+timeline_comparison:
+  enabled: true
+  embeddings_path: 'encodings'
+  reduce_dim: 13
+  num_control_points: 200
+  models:
+    - clip-vit-b32
+
+# Dimension analysis (smaller sweep)
+dimension_analysis:
+  enabled: true
+  embeddings_path: 'encodings'
+  max_dim: 20
+  models:
+    - clip-vit-b32
