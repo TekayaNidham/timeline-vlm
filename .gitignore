@@ -10,10 +10,6 @@ build/
 data/TIME10k/
 data/TIME10k.zip
 
-# Results (generated, not tracked — except README and examples)
-results/*
-!results/README.md
-!results/example_run/
 
 # Models (installed via install_models.sh)
 models/ImageBind/
