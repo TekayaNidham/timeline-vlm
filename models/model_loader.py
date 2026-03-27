@@ -29,17 +29,17 @@ MODEL_REGISTRY = {
     'clip-vit-l14':         ('clip', 'ViT-L/14',        'openai'),
     'clip-vit-l14-336':     ('clip', 'ViT-L/14@336px',  'openai'),
 
-    # ── EVA-CLIP (5 models) ──────────────────────────────────────────
-    'eva01-clip-g14':       ('open_clip', 'EVA01-g-14',           'laion400m_s11b_b41k'),
-    'eva01-clip-g14-plus':  ('open_clip', 'EVA01-g-14-plus',      'merged2b_s11b_b114k'),
-    'eva-clip-b16':         ('open_clip', 'EVA02-B-16',            'merged2b_s8b_b131k'),
-    'eva-clip-l14':         ('open_clip', 'EVA02-L-14',            'merged2b_s4b_b131k'),
-    'eva-clip-l14-336':     ('open_clip', 'EVA02-L-14-336',        'merged2b_s6b_b61k'),
+    # ── EVA-CLIP (5 models) — loaded from original BAAI EVA repo ────
+    'eva01-clip-g14':       ('eva_clip', 'EVA01-g-14',           'laion400m_s11b_b41k'),
+    'eva01-clip-g14-plus':  ('eva_clip', 'EVA01-g-14-plus',      'merged2b_s11b_b114k'),
+    'eva-clip-b16':         ('eva_clip', 'EVA02-B-16',            'merged2b_s8b_b131k'),
+    'eva-clip-l14':         ('eva_clip', 'EVA02-L-14',            'merged2b_s4b_b131k'),
+    'eva-clip-l14-336':     ('eva_clip', 'EVA02-L-14-336',        'merged2b_s6b_b61k'),
 
-    # ── EVA-CLIP-18B (3 models) ──────────────────────────────────────
-    'eva-clip-8b':          ('open_clip', 'EVA02-E-14',            'laion2b_s4b_b115k'),
-    'eva-clip-8b-plus':     ('open_clip', 'EVA02-E-14-plus',       'laion2b_s9b_b144k'),
-    'eva-clip-18b':         ('open_clip', 'EVA18B-CLIP',            None),  # May need custom loading
+    # ── EVA-CLIP-18B (3 models) — loaded from original BAAI EVA repo
+    'eva-clip-8b':          ('eva_clip', 'EVA02-E-14',            'laion2b_s4b_b115k'),
+    'eva-clip-8b-plus':     ('eva_clip', 'EVA02-E-14-plus',       'laion2b_s9b_b144k'),
+    'eva-clip-18b':         ('eva_clip', 'EVA18B-CLIP',            None),
 
     # ── ImageBind (1 model) ──────────────────────────────────────────
     'imagebind':            ('imagebind', 'imagebind_huge',  None),
@@ -105,6 +105,8 @@ def load_model(model_name, device='cuda'):
 
     if family == 'clip':
         return _load_clip(backbone, device)
+    elif family == 'eva_clip':
+        return _load_eva_clip(backbone, pretrained, device)
     elif family == 'open_clip':
         return _load_open_clip(backbone, pretrained, device)
     elif family == 'imagebind':
@@ -124,8 +126,35 @@ def _load_clip(backbone, device):
     return model, preprocess, tokenizer
 
 
+def _load_eva_clip(backbone, pretrained, device):
+    """
+    Load EVA-CLIP from the original BAAI EVA repository.
+
+    Uses the eva_clip package from https://github.com/baaivision/EVA/tree/master/EVA-CLIP
+    which provides the exact model weights and configurations used in the paper.
+    Falls back to open_clip if eva_clip is not installed.
+    """
+    try:
+        from eva_clip import create_model_and_transforms, get_tokenizer
+        model, _, preprocess = create_model_and_transforms(
+            backbone, pretrained, force_custom_clip=True
+        )
+        model = model.to(device).eval()
+        tokenizer = get_tokenizer(backbone)
+        return model, preprocess, tokenizer
+    except ImportError:
+        import warnings
+        warnings.warn(
+            f"eva_clip package not found, falling back to open_clip for {backbone}. "
+            f"For exact paper reproduction, install EVA-CLIP: "
+            f"pip install -e models/EVA/EVA-CLIP",
+            stacklevel=2,
+        )
+        return _load_open_clip(backbone, pretrained, device)
+
+
 def _load_open_clip(backbone, pretrained, device):
-    """Load any OpenCLIP-compatible model (EVA-CLIP, SigLIP, CoCa, etc.)."""
+    """Load any OpenCLIP-compatible model (SigLIP, CoCa, MobileCLIP, etc.)."""
     import open_clip
     model, _, preprocess = open_clip.create_model_and_transforms(
         backbone, pretrained=pretrained

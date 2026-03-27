@@ -9,12 +9,12 @@ One-shot scripts to regenerate each result from the paper:
   Table 5: Timeline method comparison
   Figure 6: Dimension analysis
 
-Usage:
-    python reproduce_results.py --table 1           # Single table
-    python reproduce_results.py --table 4 5         # Multiple tables
-    python reproduce_results.py --figure 6          # Figure 6
-    python reproduce_results.py --all               # Everything
-    python reproduce_results.py --table 5 --models clip-vit-b32  # Override models
+Usage (run from repo root):
+    python scripts/reproduce_results.py --table 1           # Single table
+    python scripts/reproduce_results.py --table 4 5         # Multiple tables
+    python scripts/reproduce_results.py --figure 6          # Figure 6
+    python scripts/reproduce_results.py --all               # Everything
+    python scripts/reproduce_results.py --table 5 --models clip-vit-b32  # Override
 """
 
 import os
@@ -25,7 +25,7 @@ import numpy as np
 from pathlib import Path
 from tabulate import tabulate
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from utils.metrics import (calculate_TAI, mean_absolute_error,
                            calculate_mae_per_class, print_evaluation_summary)

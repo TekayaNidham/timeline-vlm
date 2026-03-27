@@ -12,18 +12,18 @@ Experiments:
 5. Timeline Comparison (Table 5): Time Probing vs UMAP vs 4 Bézier variants
 6. Dimension Analysis (Figure 6): MAE per KPCA dimension
 
-Usage:
+Usage (run from repo root):
     # Full evaluation (requires GPU and all models)
-    python run_experiments.py --config configs/full_evaluation.yaml
+    python scripts/run_experiments.py --config configs/full_evaluation.yaml
 
     # Lightweight test (CPU-friendly, subset of models)
-    python run_experiments.py --config configs/lightweight_test.yaml
+    python scripts/run_experiments.py --config configs/lightweight_test.yaml
 
     # Single experiment
-    python run_experiments.py --experiment time_probing --models clip-vit-b32
+    python scripts/run_experiments.py --experiment time_probing --models clip-vit-b32
 
     # List available models
-    python run_experiments.py --list_models
+    python scripts/run_experiments.py --list_models
 """
 
 import os
@@ -37,7 +37,7 @@ from datetime import datetime
 from pathlib import Path
 from tabulate import tabulate
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from models.model_loader import get_available_models, MODEL_REGISTRY
 from utils.prompts import get_prompt_templates
