@@ -1,0 +1,9 @@
+[
+  {
+    "predicted_year": 1972,
+    "inference_ms": 1766.19092898909,
+    "image": "data/TIME10k/1972/800px-1972_Lancia_Stratos_at_Chivasso_test_track_(3).jpg",
+    "model": "clip-vit-b32",
+    "method": "bezier"
+  }
+]
