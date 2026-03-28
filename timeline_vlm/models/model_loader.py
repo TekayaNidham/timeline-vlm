@@ -132,6 +132,13 @@ MODEL_DISPLAY_NAMES = {
     'vit-lens':             'ViT-Lens-L',
 }
 
+# Models with precomputed embeddings available for timeline prediction (Bezier/UMAP).
+# More models will be added in future releases.
+TIMELINE_SUPPORTED_MODELS = {
+    'clip-vit-b32',
+    'eva-clip-l14-336',
+}
+
 # Reverse lookup: display name -> model key
 _DISPLAY_TO_KEY = {v.lower(): k for k, v in MODEL_DISPLAY_NAMES.items()}
 

@@ -12,7 +12,7 @@ Quick start:
     1972
 """
 
-__version__ = "1.0.5"
+__version__ = "1.0.6"
 
 from .predictor import TimelinePredictor, predict_year
 
@@ -22,23 +22,31 @@ def list_models(verbose=False):
     List all supported Vision-Language Models.
 
     Args:
-        verbose: If True, include model family and architecture details.
+        verbose: If True, include model family, architecture details,
+                 and supported methods (time_probing, timeline).
 
     Returns:
         If verbose=False: list of display names (str).
-        If verbose=True: dict mapping display name -> {key, family, backbone, pretrained}.
+        If verbose=True: dict mapping display name -> {key, family, backbone,
+                         pretrained, methods}.
     """
-    from .models.model_loader import MODEL_REGISTRY, MODEL_DISPLAY_NAMES
+    from .models.model_loader import (
+        MODEL_REGISTRY, MODEL_DISPLAY_NAMES, TIMELINE_SUPPORTED_MODELS,
+    )
 
     if verbose:
         result = {}
         for key, (family, backbone, pretrained) in sorted(MODEL_REGISTRY.items()):
             display = MODEL_DISPLAY_NAMES.get(key, key)
+            methods = ["time_probing"]
+            if key in TIMELINE_SUPPORTED_MODELS:
+                methods.extend(["bezier", "umap"])
             result[display] = {
                 "key": key,
                 "family": family,
                 "backbone": backbone,
                 "pretrained": pretrained,
+                "methods": methods,
             }
         return result
 

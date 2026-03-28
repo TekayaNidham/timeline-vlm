@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "timeline-vlm"
-version = "1.0.5"
+version = "1.0.6"
 description = "Temporal inference with Vision-Language Models — predict when an image was taken from its visual content."
 readme = "README.md"
 license = "MIT"
@@ -69,6 +69,7 @@ Repository = "https://github.com/tekayanidham/timeline-vlm"
 
 [project.scripts]
 timeline-vlm = "timeline_vlm.cli:main"
+timeline = "timeline_vlm.cli:main"
 
 [tool.setuptools.packages.find]
 include = ["timeline_vlm*"]

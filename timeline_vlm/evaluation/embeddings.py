@@ -145,6 +145,68 @@ def load_embeddings(embeddings_path, labels_path):
     return embeddings, labels
 
 
+_GITHUB_RAW_BASE = (
+    "https://raw.githubusercontent.com/TekayaNidham/timeline-vlm/main/encodings"
+)
+
+_CLIP_FILES = [
+    "timeline_embeddings.npy",
+    "image_embeddings.npy",
+    "sentence_embeddings.npy",
+    "timeline_labels.txt",
+    "labels.txt",
+    "clipl.npy",
+]
+
+_EVA_FILES = [
+    "eva/eva_timeline_embeddings.npy",
+    "eva/eva_image_embeddings.npy",
+    "eva/eva_sentence_embeddings.npy",
+    "eva/eva_labels_timeline.txt",
+    "eva/labels.txt",
+]
+
+
+def _get_cache_dir():
+    """Return the cache directory for downloaded encodings."""
+    cache_root = Path(os.environ.get("TIMELINE_VLM_CACHE",
+                                      Path.home() / ".cache" / "timeline-vlm"))
+    cache_dir = cache_root / "encodings"
+    return cache_dir
+
+
+def _download_encodings(model_name):
+    """Download precomputed encodings from GitHub and cache them locally."""
+    import requests
+
+    cache_dir = _get_cache_dir()
+    files = _EVA_FILES if 'eva' in model_name.lower() else _CLIP_FILES
+
+    # Check if already cached
+    all_cached = all((cache_dir / f).exists() for f in files)
+    if all_cached:
+        return cache_dir
+
+    print(f"Downloading precomputed embeddings to {cache_dir}...")
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    (cache_dir / "eva").mkdir(exist_ok=True)
+
+    for filename in files:
+        dest = cache_dir / filename
+        if dest.exists():
+            continue
+        url = f"{_GITHUB_RAW_BASE}/{filename}"
+        print(f"  {filename}...", end=" ", flush=True)
+        resp = requests.get(url, timeout=120)
+        resp.raise_for_status()
+        dest.write_bytes(resp.content)
+        size_mb = len(resp.content) / (1024 * 1024)
+        print(f"({size_mb:.1f} MB)")
+
+    print("Done. Embeddings cached at:", cache_dir)
+    return cache_dir
+
+
 def load_precomputed_embeddings(embeddings_dir, model_name):
     """
     Load precomputed embeddings for a model.
@@ -153,10 +215,15 @@ def load_precomputed_embeddings(embeddings_dir, model_name):
     - CLIP: encodings/{timeline,image}_embeddings.npy
     - EVA-CLIP: encodings/eva/eva_{timeline,image}_embeddings.npy
 
+    If the directory does not exist locally, downloads embeddings from
+    GitHub and caches them in ~/.cache/timeline-vlm/encodings/.
+
     Returns:
         dict with keys: timeline_emb, image_emb, timeline_years, image_years
     """
     embeddings_dir = Path(embeddings_dir)
+    if not embeddings_dir.exists():
+        embeddings_dir = _download_encodings(model_name)
 
     if 'eva' in model_name.lower():
         subdir = embeddings_dir / 'eva'

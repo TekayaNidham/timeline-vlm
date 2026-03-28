@@ -83,16 +83,28 @@ def cmd_predict(args):
 def cmd_list_models(args):
     """List all supported models."""
     from . import list_models
-    models = list_models(verbose=args.verbose)
+    from .models.model_loader import MODEL_DISPLAY_NAMES, TIMELINE_SUPPORTED_MODELS
+
+    models = list_models(verbose=True)
+
+    timeline_names = sorted(
+        MODEL_DISPLAY_NAMES[k] for k in TIMELINE_SUPPORTED_MODELS
+    )
+    time_probing_names = sorted(models.keys())
 
     if args.verbose:
-        print(f"{'Display Name':<45} {'Key':<35} {'Family':<12}")
-        print('-' * 92)
+        print(f"\n{'Display Name':<45} {'Key':<35} {'Methods'}")
+        print('-' * 110)
         for name, info in sorted(models.items()):
-            print(f"{name:<45} {info['key']:<35} {info['family']:<12}")
+            methods = ', '.join(info['methods'])
+            print(f"{name:<45} {info['key']:<35} {methods}")
     else:
-        print(f"Supported models ({len(models)} total):\n")
-        for name in models:
+        print(f"\nTimeline prediction (Bezier/UMAP) — {len(timeline_names)} models:")
+        for name in timeline_names:
+            print(f"  {name}")
+        print(f"  (more models coming soon)\n")
+        print(f"Time probing — all {len(time_probing_names)} models:")
+        for name in time_probing_names:
             print(f"  {name}")
 
 
