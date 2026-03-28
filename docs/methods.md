@@ -14,14 +14,25 @@ Each year y in [1700, 2024] is encoded as text using a prompt template. The pred
 
 - **Prompt**: P7 ("was built in the year {year}") performs best across all 37 VLMs
 - **Complexity**: O(T) per image, where T = number of years
-- **Implementation**: [`evaluation/time_probing.py`](../evaluation/time_probing.py)
+- **Supported models**: All 37 VLMs
+- **Implementation**: [`timeline_vlm/evaluation/time_probing.py`](../timeline_vlm/evaluation/time_probing.py)
 
 ```python
-from evaluation import TimeProbing
+from timeline_vlm.evaluation import TimeProbing
 
 evaluator = TimeProbing('clip-vit-b32', device='cpu')
 time_emb = evaluator.encode_time_embeddings(years, 'was built in the year {year}')
 result = evaluator.evaluate_from_embeddings(image_emb, image_years, time_emb, years)
+```
+
+Or via the high-level API:
+
+```python
+from timeline_vlm import TimelinePredictor
+
+predictor = TimelinePredictor(model='clip-vit-b32', method='time_probing')
+predictor.fit_from_precomputed('encodings')
+year = predictor.predict('photo.jpg')
 ```
 
 ---
@@ -32,18 +43,29 @@ Projects time embeddings onto a 1D manifold using UMAP, then maps image embeddin
 
 **Paper-optimized parameters (Section 5.3):**
 - CLIP ViT-B/32: `n_neighbors=38, min_dist=0.7446`
-- EVA-CLIP-L-14-336: `n_neighbors=21, min_dist=0.1040`
+- EVA02-CLIP-L/14@336px: `n_neighbors=21, min_dist=0.1040`
 - Metric: cosine
 - Optimization: TPE via Optuna, maximizing Spearman's rank correlation
 
-**Implementation**: [`evaluation/timeline_umap.py`](../evaluation/timeline_umap.py)
+- **Supported models**: CLIP ViT-B/32, EVA02-CLIP-L/14@336px (more coming soon)
+- **Implementation**: [`timeline_vlm/evaluation/timeline_umap.py`](../timeline_vlm/evaluation/timeline_umap.py)
 
 ```python
-from evaluation import UMAPTimeline
+from timeline_vlm.evaluation import UMAPTimeline
 
 timeline = UMAPTimeline()
 quality = timeline.fit(time_emb, years, model_name='clip-vit-b32')
 predictions, _ = timeline.predict(image_emb)
+```
+
+Or via the high-level API:
+
+```python
+from timeline_vlm import TimelinePredictor
+
+predictor = TimelinePredictor(model='clip-vit-b32', method='umap')
+predictor.fit_from_precomputed('encodings')
+year = predictor.predict('photo.jpg')
 ```
 
 ---
@@ -67,14 +89,25 @@ Fits a smooth 1D Bezier curve C(t) through chronologically-ordered time embeddin
 - S = 13 optimal KPCA dimension (Figure 6)
 - Kernel: cosine (for KPCA)
 
-**Implementation**: [`evaluation/timeline_bezier.py`](../evaluation/timeline_bezier.py)
+- **Supported models**: CLIP ViT-B/32, EVA02-CLIP-L/14@336px (more coming soon)
+- **Implementation**: [`timeline_vlm/evaluation/timeline_bezier.py`](../timeline_vlm/evaluation/timeline_bezier.py)
 
 ```python
-from evaluation import BezierTimeline
+from timeline_vlm.evaluation import BezierTimeline
 
 bezier = BezierTimeline(num_control_points=200)
 quality = bezier.fit(time_emb, years, reduce_dim=13)
 preds = bezier.predict_interpolation(image_emb)
+```
+
+Or via the high-level API:
+
+```python
+from timeline_vlm import TimelinePredictor
+
+predictor = TimelinePredictor(model='clip-vit-b32', method='bezier', reduce_dim=13)
+predictor.fit_from_precomputed('encodings')
+year = predictor.predict('photo.jpg')
 ```
 
 ---
@@ -107,4 +140,4 @@ For evaluating chronological ordering quality of 1D projections:
 - **Kendall's tau**: Concordance of pairwise orderings
 - **delta_MNDL**: Modified Normalised Damerau-Levenshtein Distance = 1 - 2S/M
 
-**Implementation**: [`utils/metrics.py`](../utils/metrics.py)
+**Implementation**: [`timeline_vlm/utils/metrics.py`](../timeline_vlm/utils/metrics.py)

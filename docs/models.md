@@ -70,15 +70,35 @@ Loaded from the **original BAAI EVA repository** (`eva_clip` package). Falls bac
 | `imagebind` | ImageBind | ImageBind-Huge |
 | `vit-lens` | ViT-Lens | ViT-Lens-L |
 
+## Method Support
+
+Not all models have precomputed embeddings for timeline prediction yet:
+
+| Method | Supported Models |
+|---|---|
+| Time probing | All 37 models |
+| Bezier / UMAP | CLIP ViT-B/32 (`clip-vit-b32`), EVA02-CLIP-L/14@336px (`eva-clip-l14-336`) |
+
+> More models for timeline prediction will be added in upcoming releases.
+
 ## Usage
 
 ```python
-from models import load_model, get_available_models
+from timeline_vlm import TimelinePredictor, list_models
 
-# Load any model
+# List all models (grouped by method support)
+list_models()
+
+# High-level API
+predictor = TimelinePredictor('clip-vit-b32', method='bezier')
+predictor.fit_from_precomputed('encodings')
+year = predictor.predict('photo.jpg')
+
+# Low-level model loading
+from timeline_vlm.models import load_model, get_available_models
+
 model, preprocess, tokenizer = load_model('clip-vit-b32', device='cuda')
 
-# List all keys
 for name in get_available_models():
     print(name)
 ```
@@ -86,11 +106,16 @@ for name in get_available_models():
 ## Installation
 
 ```bash
-# Core (CLIP + OpenCLIP-based models)
-pip install -r requirements.txt
+# Install the package
+pip install timeline-vlm
+
+# CLIP models (not on PyPI, must be installed separately)
 pip install git+https://github.com/openai/CLIP.git
 
-# EVA-CLIP (original BAAI repo)
+# OpenCLIP models
+pip install timeline-vlm[openclip]
+
+# EVA-CLIP (original BAAI repo, for exact paper reproduction)
 git clone https://github.com/baaivision/EVA.git models/EVA
 pip install -e models/EVA/EVA-CLIP
 

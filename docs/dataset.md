@@ -53,7 +53,7 @@ data/TIME10k/
 ## Usage in Code
 
 ```python
-from data import TIME10kDataset
+from timeline_vlm.data import TIME10kDataset
 
 # Load from directory
 dataset = TIME10kDataset('data/TIME10k')
@@ -76,4 +76,4 @@ paths = dataset.image_paths
 
 ## Precomputed Embeddings
 
-For convenience, precomputed embeddings for CLIP ViT-B/32 and EVA-CLIP-L-14-336 are included in `encodings/`. These enable all experiments without downloading the dataset or models.
+For convenience, precomputed embeddings for CLIP ViT-B/32 and EVA02-CLIP-L/14@336px are available in `encodings/` (auto-downloaded on first use). These enable all experiments without downloading the dataset or models.

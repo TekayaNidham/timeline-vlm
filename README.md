@@ -45,8 +45,8 @@ print(predictor.predict('photo.jpg'))  # -> 1972
 ### Or from the command line:
 
 ```bash
-timeline-vlm predict photo.jpg
-timeline-vlm predict photo.jpg --model "CLIP ViT-L/14" --method time_probing
+timeline predict photo.jpg
+timeline predict photo.jpg --model "CLIP ViT-L/14" --method time_probing
 ```
 
 ### List available models:
@@ -56,10 +56,10 @@ from timeline_vlm import list_models
 print(list_models())  # 37 supported VLMs
 
 # or from CLI
-timeline-vlm list-models
+timeline list-models
 ```
 
-No GPU required — precomputed embeddings for CLIP and EVA-CLIP are included.
+No GPU required. Precomputed embeddings are automatically downloaded and cached on first use.
 
 ---
 
@@ -74,7 +74,7 @@ pip install timeline-vlm
 ### From source (for development or paper reproduction)
 
 ```bash
-git clone https://github.com/tekayanidham/timeline-vlm.git
+git clone https://github.com/TekayaNidham/timeline-vlm.git
 cd timeline-vlm
 pip install -e .
 ```
@@ -131,19 +131,36 @@ See [`docs/library.md`](docs/library.md) for the full API reference.
 
 ## CLI
 
+The package installs two equivalent CLI commands: `timeline` (short) and `timeline-vlm` (full).
+
 ```bash
 # Predict
-timeline-vlm predict photo.jpg
-timeline-vlm predict photos/ --output json --save results.json
+timeline predict photo.jpg
+timeline predict photos/ --output json --save results.json
 
-# List models
-timeline-vlm list-models
-timeline-vlm list-models --verbose
+# List models (grouped by method support)
+timeline list-models
+timeline list-models --verbose
 
 # Visualize (1D, 2D, or 3D)
-timeline-vlm visualize timeline --model clip-vit-b32 --dim 3 --save timeline.png
-timeline-vlm visualize prediction --image photo.jpg --dim 2 --save pred.png
+timeline visualize timeline --model clip-vit-b32 --dim 3 --save timeline.png
+timeline visualize prediction --image photo.jpg --dim 2 --save pred.png
 ```
+
+---
+
+## Methods
+
+Three temporal inference approaches, each described in detail in [`docs/methods.md`](docs/methods.md):
+
+| Method | Paper | CLIP MAE | Supported Models |
+|---|---|---|---|
+| Time Probing | Sec. 3.1 | 9.24 | All 37 models |
+| UMAP Timeline | Sec. 3.3.1 | 13.01 | CLIP ViT-B/32, EVA02-CLIP-L/14@336px |
+| **Bezier(R^S, Int)** | **Sec. 3.3.2** | **8.80** | **CLIP ViT-B/32, EVA02-CLIP-L/14@336px** |
+
+- **Time probing** works with any model — it only needs the VLM installed.
+- **Timeline prediction (Bezier/UMAP)** requires precomputed embeddings. Currently available for CLIP ViT-B/32 and EVA02-CLIP-L/14@336px. More models will be added in upcoming releases.
 
 ---
 
@@ -167,18 +184,6 @@ python scripts/run_experiments.py --config configs/full_evaluation.yaml  # Full 
 | `--figure 6` | MAE per KPCA dimension (optimal S=13) |
 
 See [`docs/reproducing_results.md`](docs/reproducing_results.md) for the full step-by-step guide.
-
----
-
-## Methods
-
-Three temporal inference approaches, each described in detail in [`docs/methods.md`](docs/methods.md):
-
-| Method | Paper | CLIP MAE | Description |
-|---|---|---|---|
-| Time Probing | Sec. 3.1 | 9.24 | Dot-product similarity baseline |
-| UMAP Timeline | Sec. 3.3.1 | 13.01 | 1D manifold projection |
-| **Bezier(R^S, Int)** | **Sec. 3.3.2** | **8.80** | **Bezier curve in KPCA subspace (best)** |
 
 ---
 

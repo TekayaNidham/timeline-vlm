@@ -11,7 +11,7 @@ All commands are run from the **repository root**.
 
 ## Prerequisites
 
-Precomputed embeddings for **CLIP ViT-B/32** and **EVA-CLIP-L-14-336** are included in `encodings/`. These are sufficient to reproduce all tables on CPU without downloading models or the dataset.
+Precomputed embeddings for **CLIP ViT-B/32** and **EVA02-CLIP-L/14@336px** are available in `encodings/` (auto-downloaded on first use if not present locally). These are sufficient to reproduce all tables on CPU without downloading models or the dataset.
 
 For full reproduction with all 37 models, you need:
 - GPU with 32GB+ VRAM
@@ -51,7 +51,7 @@ python scripts/run_experiments.py --config configs/full_evaluation.yaml
 
 ## Table 2: Prompt Sensitivity (P1-P9)
 
-Compares 9 prompt formulations for CLIP ViT-B/32 and EVA-CLIP-L-14-336.
+Compares 9 prompt formulations for CLIP ViT-B/32 and EVA02-CLIP-L/14@336px.
 
 ```bash
 python scripts/reproduce_results.py --table 2

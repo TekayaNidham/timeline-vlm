@@ -18,6 +18,8 @@ predictor.fit_from_precomputed("encodings")
 year = predictor.predict("photo.jpg")
 ```
 
+Precomputed embeddings are downloaded automatically on first use and cached in `~/.cache/timeline-vlm/`.
+
 ---
 
 ## TimelinePredictor
@@ -62,7 +64,7 @@ Before predicting, the predictor needs a fitted timeline. Three options:
 predictor.fit_from_precomputed("encodings")
 ```
 
-Loads `.npy` files from the given directory. This is the fastest option and does not require the VLM model to be installed.
+Loads `.npy` files from the given directory. If the directory is not found locally, embeddings are automatically downloaded from GitHub and cached in `~/.cache/timeline-vlm/encodings/`. You can override the cache location with the `TIMELINE_VLM_CACHE` environment variable.
 
 ### From numpy arrays
 
@@ -78,7 +80,7 @@ predictor.fit_from_embeddings(time_embeddings, years)
 predictor.fit_from_dataset(prompt='P7', year_min=1700, year_max=2024)
 ```
 
-Generates time text embeddings using the VLM. Requires the model library (e.g., `pip install timeline-vlm[clip]`).
+Generates time text embeddings using the VLM. Requires the model library (e.g., `pip install git+https://github.com/openai/CLIP.git`).
 
 All three return `self` for chaining:
 
@@ -122,7 +124,12 @@ details = predictor.predict_with_details("photo.jpg")
 
 ## Methods
 
-Three temporal inference approaches, corresponding to the paper sections:
+Three temporal inference approaches, corresponding to the paper sections.
+
+**Method support varies by model:**
+
+- **Time probing**: Supported by all 37 models — only requires the model to be installed.
+- **Timeline (Bezier/UMAP)**: Requires precomputed embeddings. Currently available for **CLIP ViT-B/32** and **EVA02-CLIP-L/14@336px**. More models will be added in upcoming releases.
 
 ### Time Probing (`method='time_probing'`)
 
@@ -271,9 +278,22 @@ from timeline_vlm import list_models
 models = list_models()
 # ['CLIP RN50', 'CLIP RN101', 'CLIP ViT-B/16', ...]
 
-# With details
+# With details and supported methods per model
 models = list_models(verbose=True)
-# {'CLIP ViT-B/32': {'key': 'clip-vit-b32', 'family': 'clip', ...}, ...}
+# {
+#     'CLIP ViT-B/32': {
+#         'key': 'clip-vit-b32',
+#         'family': 'clip',
+#         'backbone': 'ViT-B/32',
+#         'pretrained': 'openai',
+#         'methods': ['time_probing', 'bezier', 'umap'],
+#     },
+#     'ImageBind Huge': {
+#         ...
+#         'methods': ['time_probing'],
+#     },
+#     ...
+# }
 
 # Also available as a static method on the predictor
 models = TimelinePredictor.list_models()
@@ -281,8 +301,8 @@ models = TimelinePredictor.list_models(verbose=True)
 ```
 
 ```bash
-timeline-vlm list-models
-timeline-vlm list-models --verbose
+timeline list-models
+timeline list-models --verbose
 ```
 
 Models can be referenced by key or display name:
@@ -293,17 +313,24 @@ TimelinePredictor(model='clip-vit-b32')
 TimelinePredictor(model='CLIP ViT-B/32')
 ```
 
+### Method support
+
+| Method | Supported Models | Notes |
+|---|---|---|
+| Time probing | All 37 models | Requires model installation |
+| Bezier / UMAP | CLIP ViT-B/32, EVA02-CLIP-L/14@336px | Requires precomputed embeddings |
+
+> More models for timeline prediction will be added in upcoming releases.
+
 ### Model families
 
 | Family | Count | Example |
 |---|---|---|
 | CLIP | 9 | `CLIP ViT-B/32`, `CLIP ViT-L/14@336px` |
-| EVA-CLIP | 8 | `EVA-CLIP ViT-B/16` |
+| EVA-CLIP | 8 | `EVA02-CLIP-L/14@336px` |
 | OpenCLIP | 10 | `OpenCLIP ViT-bigG/14` |
-| SigLIP | 3 | `SigLIP ViT-B/16@384px` |
-| Other | 7 | `BLIP-2 ViT-L`, `DINOv2 ViT-L/14` |
-
-> More models will be added in upcoming releases.
+| SigLIP | 3 | `SigLIP ViT-L/16@384px` |
+| Other | 7 | `ImageBind Huge`, `ViT-Lens-L` |
 
 ---
 
@@ -323,31 +350,60 @@ predictor.fit_from_precomputed("my_encodings/")
 
 ---
 
+## Automatic Embedding Download
+
+When you call `fit_from_precomputed("encodings")` and the `encodings/` directory is not found locally, the library automatically downloads precomputed embeddings from GitHub and caches them in `~/.cache/timeline-vlm/encodings/`. Subsequent calls load from cache instantly.
+
+To override the cache location:
+
+```bash
+export TIMELINE_VLM_CACHE=/path/to/cache
+```
+
+---
+
 ## CLI
 
-Installed as `timeline-vlm` when the package is pip-installed.
+The package installs two equivalent CLI commands:
+
+- `timeline` — short alias
+- `timeline-vlm` — full name
 
 ### Predict
 
 ```bash
-timeline-vlm predict photo.jpg
-timeline-vlm predict photo.jpg --model "CLIP ViT-L/14" --method time_probing
-timeline-vlm predict photos/ --output json --save results.json
+timeline predict photo.jpg
+timeline predict photo.jpg --model "CLIP ViT-L/14" --method time_probing
+timeline predict photos/ --output json --save results.json
 ```
 
 ### List models
 
 ```bash
-timeline-vlm list-models
-timeline-vlm list-models --verbose
+timeline list-models
+timeline list-models --verbose
+```
+
+The default output groups models by method support:
+
+```
+Timeline prediction (Bezier/UMAP) — 2 models:
+  CLIP ViT-B/32
+  EVA02-CLIP-L/14@336px
+  (more models coming soon)
+
+Time probing — all 37 models:
+  CLIP ResNet-50
+  CLIP ViT-B/32
+  ...
 ```
 
 ### Visualize
 
 ```bash
-timeline-vlm visualize timeline --model clip-vit-b32 --dim 3 --save timeline.png
-timeline-vlm visualize prediction --image photo.jpg --dim 2 --save pred.png
-timeline-vlm visualize timeline --dim 1
+timeline visualize timeline --model clip-vit-b32 --dim 3 --save timeline.png
+timeline visualize prediction --image photo.jpg --dim 2 --save pred.png
+timeline visualize timeline --dim 1
 ```
 
 | Flag | Default | Description |
@@ -356,6 +412,7 @@ timeline-vlm visualize timeline --dim 1
 | `--model` | `clip-vit-b32` | Model to use |
 | `--device` | `cpu` | Device (`cpu` or `cuda`) |
 | `--embeddings_path` | `encodings` | Path to precomputed embeddings |
+| `--reduce_dim` | `None` | KPCA dimensions (None = original space) |
 | `--image` | — | Image path (required for `prediction` type) |
 | `--save` | — | Save figure to file |
 
