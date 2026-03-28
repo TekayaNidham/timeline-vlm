@@ -12,7 +12,7 @@ Quick start:
     1972
 """
 
-__version__ = "1.0.0"
+__version__ = "1.0.4"
 
 from .predictor import TimelinePredictor, predict_year
 

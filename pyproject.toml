@@ -4,15 +4,13 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "timeline-vlm"
-version = "1.0.0"
+version = "1.0.4"
 description = "Temporal inference with Vision-Language Models — predict when an image was taken from its visual content."
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.8"
 authors = [
     { name = "Nidham Tekaya", email = "nidham.tekaya@fhstp.ac.at" },
-    { name = "Manuela Waldner" },
-    { name = "Matthias Zeppelzauer" },
 ]
 keywords = [
     "vision-language-models", "temporal-reasoning", "CLIP",
@@ -42,18 +40,17 @@ dependencies = [
     "umap-learn>=0.5.0",
     "matplotlib>=3.3.0",
     "tabulate>=0.8.9",
+    "requests>=2.25.0",
 ]
 
 [project.optional-dependencies]
-clip = ["clip @ git+https://github.com/openai/CLIP.git"]
+# CLIP must be installed manually: pip install git+https://github.com/openai/CLIP.git
 openclip = ["open-clip-torch>=2.24.0"]
 all = [
-    "clip @ git+https://github.com/openai/CLIP.git",
     "open-clip-torch>=2.24.0",
     "optuna>=3.0.0",
     "seaborn>=0.11.0",
     "pandas>=1.3.0",
-    "requests>=2.25.0",
     "pyyaml>=5.4.0",
 ]
 dev = [
