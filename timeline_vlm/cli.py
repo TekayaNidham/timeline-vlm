@@ -105,10 +105,12 @@ def cmd_visualize(args):
 
     if args.type == 'prediction' and args.image:
         from .visualization import plot_prediction
-        plot_prediction(predictor, args.image, save_path=args.save, show=not args.save)
+        plot_prediction(predictor, args.image, dim=args.dim,
+                        save_path=args.save, show=not args.save)
     elif args.type == 'timeline':
         from .visualization import plot_timeline
-        plot_timeline(predictor, save_path=args.save, show=not args.save)
+        plot_timeline(predictor, dim=args.dim,
+                      save_path=args.save, show=not args.save)
     else:
         print("Specify --type (timeline or prediction). "
               "For prediction, also provide --image.")
@@ -147,6 +149,8 @@ def main():
     p.add_argument('--model', default='clip-vit-b32')
     p.add_argument('--device', default='cpu')
     p.add_argument('--embeddings_path', default='encodings')
+    p.add_argument('--dim', type=int, default=3, choices=[1, 2, 3],
+                   help='Projection dimensionality (default: 3)')
     p.add_argument('--image', default=None, help='Image for prediction viz')
     p.add_argument('--save', default=None)
 
