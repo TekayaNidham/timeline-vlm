@@ -133,7 +133,8 @@ def main():
     p.add_argument('--device', default='cpu', choices=['cuda', 'cpu'])
     p.add_argument('--embeddings_path', default='encodings')
     p.add_argument('--prompt', default='P7')
-    p.add_argument('--reduce_dim', type=int, default=13)
+    p.add_argument('--reduce_dim', type=int, default=None,
+                   help='KPCA dimensions for Bezier (default: None = original space)')
     p.add_argument('--bezier_method', default='interpolation',
                    choices=['interpolation', 'nearest_neighbor'])
     p.add_argument('--output', default='text', choices=['text', 'json'])

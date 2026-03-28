@@ -54,15 +54,16 @@ class TimelinePredictor:
 
     def __init__(self, model='clip-vit-b32', method='bezier',
                  device=None, prompt='P7',
-                 reduce_dim=13, bezier_method='interpolation',
+                 reduce_dim=None, bezier_method='interpolation',
                  num_control_points=200):
         """
         Args:
-            model: Model name (see models.model_loader.get_available_models())
+            model: Model name (see TimelinePredictor.list_models())
             method: 'time_probing', 'umap', or 'bezier'
             device: 'cuda', 'cpu', or None (auto-detect)
             prompt: Prompt template ID (P1-P9) for time probing
-            reduce_dim: KPCA dimension for Bézier (0 or None = no reduction)
+            reduce_dim: KPCA dimension for Bézier. None (default) = original
+                        embedding space. Set to an integer (e.g. 13) to reduce.
             bezier_method: 'interpolation' or 'nearest_neighbor'
             num_control_points: K parameter for Bézier curve
         """
@@ -327,6 +328,21 @@ class TimelinePredictor:
     @property
     def is_fitted(self):
         return self._fitted
+
+    @staticmethod
+    def list_models(verbose=False):
+        """
+        List all supported Vision-Language Models.
+
+        Args:
+            verbose: If True, return dict with model details.
+                     If False, return sorted list of display names.
+
+        Returns:
+            list[str] or dict
+        """
+        from . import list_models
+        return list_models(verbose=verbose)
 
     def __repr__(self):
         status = 'fitted' if self._fitted else 'not fitted'

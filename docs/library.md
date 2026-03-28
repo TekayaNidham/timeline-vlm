@@ -32,7 +32,7 @@ predictor = TimelinePredictor(
     method='bezier',               # 'time_probing', 'umap', or 'bezier'
     device=None,                   # 'cuda', 'cpu', or None (auto-detect)
     prompt='P7',                   # Prompt template ID (P1-P9)
-    reduce_dim=13,                 # KPCA dimensions (0 or None = original space)
+    reduce_dim=None,               # KPCA dimensions (None = original space)
     bezier_method='interpolation', # 'interpolation' or 'nearest_neighbor'
     num_control_points=200,        # K parameter for Bezier curve
 )
@@ -46,7 +46,7 @@ predictor = TimelinePredictor(
 | `method` | `'bezier'` | Prediction method. See [Methods](#methods) below. |
 | `device` | `None` | `'cuda'` or `'cpu'`. Auto-detects GPU when `None`. |
 | `prompt` | `'P7'` | Prompt template for time probing. P7 ("was built in the year {year}") works best. |
-| `reduce_dim` | `13` | Number of KPCA dimensions for Bezier. Set to `0` or `None` to use the original embedding space (R^N). |
+| `reduce_dim` | `None` | KPCA dimensions for Bezier. `None` (default) uses the original embedding space (R^N). Set to an integer (e.g. `13`) to reduce. |
 | `bezier_method` | `'interpolation'` | How to project onto the Bezier curve. See [Prediction Methods](#prediction-methods). |
 | `num_control_points` | `200` | Number of control points K for the Bezier curve. |
 
@@ -152,7 +152,7 @@ Bezier curve fitted through the embedding space using De Casteljau's algorithm w
 predictor = TimelinePredictor(
     model='clip-vit-b32',
     method='bezier',
-    reduce_dim=13,                 # KPCA dimensions (default, optimal per Figure 6)
+    reduce_dim=None,               # None = original space; set to 13 for optimal reduced space
     bezier_method='interpolation', # or 'nearest_neighbor'
     num_control_points=200,
 )
@@ -186,24 +186,24 @@ The Bezier method can operate in the original embedding space (R^N, e.g., R^512 
 
 | `reduce_dim` | Space | Description |
 |---|---|---|
-| `13` (default) | R^S (S=13) | Optimal dimensionality per Figure 6. Removes noise, best MAE. |
-| `0` or `None` | R^N | Original embedding space. No dimensionality reduction. |
+| `None` (default) | R^N | Original embedding space. No dimensionality reduction. |
+| `13` | R^S (S=13) | Optimal dimensionality per Figure 6. Removes noise, best MAE. |
 | Any integer S > 0 | R^S | Custom KPCA dimensionality. |
 
 This gives four Bezier variants as reported in the paper (Table 2):
 
 ```python
-# R^S + Interpolation (best overall)
+# R^N + Interpolation (default — original embedding space)
+TimelinePredictor(method='bezier', bezier_method='interpolation')
+
+# R^N + Nearest Neighbor
+TimelinePredictor(method='bezier', bezier_method='nearest_neighbor')
+
+# R^S + Interpolation (reduced space, best MAE)
 TimelinePredictor(method='bezier', reduce_dim=13, bezier_method='interpolation')
 
 # R^S + Nearest Neighbor
 TimelinePredictor(method='bezier', reduce_dim=13, bezier_method='nearest_neighbor')
-
-# R^N + Interpolation
-TimelinePredictor(method='bezier', reduce_dim=0, bezier_method='interpolation')
-
-# R^N + Nearest Neighbor
-TimelinePredictor(method='bezier', reduce_dim=0, bezier_method='nearest_neighbor')
 ```
 
 ---
@@ -262,7 +262,7 @@ results = predictor.evaluate(image_embeddings, ground_truth_years)
 
 ## Model Selection
 
-37 VLMs across 5 families. Use `list_models()` to see them all:
+37 VLMs across 5 families. List them from Python or the CLI:
 
 ```python
 from timeline_vlm import list_models
@@ -274,6 +274,15 @@ models = list_models()
 # With details
 models = list_models(verbose=True)
 # {'CLIP ViT-B/32': {'key': 'clip-vit-b32', 'family': 'clip', ...}, ...}
+
+# Also available as a static method on the predictor
+models = TimelinePredictor.list_models()
+models = TimelinePredictor.list_models(verbose=True)
+```
+
+```bash
+timeline-vlm list-models
+timeline-vlm list-models --verbose
 ```
 
 Models can be referenced by key or display name:
@@ -293,6 +302,8 @@ TimelinePredictor(model='CLIP ViT-B/32')
 | OpenCLIP | 10 | `OpenCLIP ViT-bigG/14` |
 | SigLIP | 3 | `SigLIP ViT-B/16@384px` |
 | Other | 7 | `BLIP-2 ViT-L`, `DINOv2 ViT-L/14` |
+
+> More models will be added in upcoming releases.
 
 ---
 
