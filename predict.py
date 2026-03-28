@@ -28,7 +28,6 @@ Usage:
 """
 
 import os
-import sys
 import argparse
 import json
 import time
@@ -37,11 +36,9 @@ import torch
 from pathlib import Path
 from PIL import Image
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-
-from models.model_loader import load_model, is_clip_family, get_available_models
-from utils.prompts import get_prompt_templates
-from utils.metrics import calculate_TAI
+from timeline_vlm.models.model_loader import load_model, is_clip_family, get_available_models
+from timeline_vlm.utils.prompts import get_prompt_templates
+from timeline_vlm.utils.metrics import calculate_TAI
 
 
 def predict_time_probing(model, preprocess, tokenizer, model_name, image,
@@ -88,8 +85,8 @@ def predict_with_embeddings(model, preprocess, image, precomputed,
                             method, device, bezier_method='interpolation',
                             reduce_dim=13, num_control_points=200):
     """Predict year using precomputed timeline embeddings + a timeline method."""
-    from evaluation.timeline_umap import UMAPTimeline
-    from evaluation.timeline_bezier import BezierTimeline
+    from timeline_vlm.evaluation.timeline_umap import UMAPTimeline
+    from timeline_vlm.evaluation.timeline_bezier import BezierTimeline
 
     timeline_emb = precomputed['timeline_emb']
     timeline_years = precomputed['timeline_years']
@@ -245,7 +242,7 @@ Examples:
     precomputed = None
     if args.method in ('umap', 'bezier'):
         if args.embeddings_path and os.path.exists(args.embeddings_path):
-            from evaluation.embeddings import load_precomputed_embeddings
+            from timeline_vlm.evaluation.embeddings import load_precomputed_embeddings
             try:
                 precomputed = load_precomputed_embeddings(
                     args.embeddings_path, args.model

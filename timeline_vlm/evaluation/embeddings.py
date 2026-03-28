@@ -32,7 +32,7 @@ def generate_time_embeddings(model, tokenizer, model_name, prompt_template,
         embeddings: np.ndarray of shape (num_years, embed_dim)
         years: List of years
     """
-    from models.model_loader import is_clip_family
+    from ..models.model_loader import is_clip_family
 
     if years is None:
         years = list(range(1700, 2025))

@@ -18,24 +18,21 @@ Usage (run from repo root):
 """
 
 import os
-import sys
 import argparse
 import json
 import numpy as np
 from pathlib import Path
 from tabulate import tabulate
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from utils.metrics import (calculate_TAI, mean_absolute_error,
-                           calculate_mae_per_class, print_evaluation_summary)
-from utils.prompts import get_prompt_templates
+from timeline_vlm.utils.metrics import (calculate_TAI, mean_absolute_error,
+                                        calculate_mae_per_class, print_evaluation_summary)
+from timeline_vlm.utils.prompts import get_prompt_templates
 
 
 def table1(args):
     """Table 1: Time probing MAE & TAI for VLMs with P7."""
-    from evaluation.time_probing import TimeProbing
-    from evaluation.embeddings import load_precomputed_embeddings
+    from timeline_vlm.evaluation.time_probing import TimeProbing
+    from timeline_vlm.evaluation.embeddings import load_precomputed_embeddings
 
     prompts = get_prompt_templates()
     models = args.models or ['clip-vit-b32', 'eva-clip-l14-336']
@@ -68,8 +65,8 @@ def table1(args):
 
 def table2(args):
     """Table 2: Prompt sensitivity (P1-P9) for CLIP and EVA-CLIP."""
-    from evaluation.time_probing import TimeProbing
-    from evaluation.embeddings import load_precomputed_embeddings
+    from timeline_vlm.evaluation.time_probing import TimeProbing
+    from timeline_vlm.evaluation.embeddings import load_precomputed_embeddings
 
     prompts = get_prompt_templates()
     models = args.models or ['clip-vit-b32', 'eva-clip-l14-336']
@@ -105,8 +102,8 @@ def table2(args):
 
 def table3(args):
     """Table 3: Class-wise awareness for EVA-CLIP."""
-    from evaluation.time_probing import TimeProbing
-    from evaluation.embeddings import load_precomputed_embeddings
+    from timeline_vlm.evaluation.time_probing import TimeProbing
+    from timeline_vlm.evaluation.embeddings import load_precomputed_embeddings
 
     prompts = get_prompt_templates()
     model_name = (args.models or ['eva-clip-l14-336'])[0]
@@ -136,8 +133,8 @@ def table3(args):
 
 def table4(args):
     """Table 4: Chronological progression in 1D."""
-    from evaluation.embedding_space import generate_table4
-    from evaluation.embeddings import load_precomputed_embeddings
+    from timeline_vlm.evaluation.embedding_space import generate_table4
+    from timeline_vlm.evaluation.embeddings import load_precomputed_embeddings
 
     print("\n" + "=" * 60)
     print("Table 4: Degree of chronological progression in 1D")
@@ -153,10 +150,10 @@ def table4(args):
 
 def table5(args):
     """Table 5: Time Probing vs UMAP vs Bézier variants."""
-    from evaluation.time_probing import TimeProbing
-    from evaluation.timeline_umap import UMAPTimeline
-    from evaluation.timeline_bezier import BezierTimeline
-    from evaluation.embeddings import load_precomputed_embeddings
+    from timeline_vlm.evaluation.time_probing import TimeProbing
+    from timeline_vlm.evaluation.timeline_umap import UMAPTimeline
+    from timeline_vlm.evaluation.timeline_bezier import BezierTimeline
+    from timeline_vlm.evaluation.embeddings import load_precomputed_embeddings
 
     prompts = get_prompt_templates()
     models = args.models or ['clip-vit-b32']
@@ -218,8 +215,8 @@ def table5(args):
 
 def figure6(args):
     """Figure 6: MAE per KPCA dimension."""
-    from evaluation.embedding_space import analyze_dimension_sweep, plot_dimension_sweep
-    from evaluation.embeddings import load_precomputed_embeddings
+    from timeline_vlm.evaluation.embedding_space import analyze_dimension_sweep, plot_dimension_sweep
+    from timeline_vlm.evaluation.embeddings import load_precomputed_embeddings
 
     print("\n" + "=" * 60)
     print("Figure 6: MAE per dimension (KPCA)")

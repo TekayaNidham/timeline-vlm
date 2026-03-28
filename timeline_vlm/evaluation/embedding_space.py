@@ -9,17 +9,14 @@ Analyzes the spatial structure of time embeddings using:
 """
 
 import os
-import sys
 import argparse
 import numpy as np
 from scipy.stats import spearmanr, kendalltau
 from sklearn.decomposition import KernelPCA
 import umap
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from utils.metrics import compute_ranking_metrics, mean_absolute_error, calculate_TAI
-from evaluation.timeline_bezier import BezierTimeline
+from ..utils.metrics import compute_ranking_metrics, mean_absolute_error, calculate_TAI
+from .timeline_bezier import BezierTimeline
 
 
 def analyze_1d_progression(time_embeddings, years, method='kpca', model_name=None):
@@ -44,7 +41,7 @@ def analyze_1d_progression(time_embeddings, years, method='kpca', model_name=Non
         reducer = KernelPCA(n_components=1, kernel='cosine')
         projection_1d = reducer.fit_transform(time_embeddings).flatten()
     elif method == 'umap':
-        from evaluation.timeline_umap import PAPER_PARAMS
+        from .timeline_umap import PAPER_PARAMS
         if model_name and 'eva' in model_name.lower():
             params = PAPER_PARAMS['eva']
         else:
@@ -191,7 +188,7 @@ def main():
     args = parser.parse_args()
     os.makedirs(args.output_dir, exist_ok=True)
 
-    from evaluation.embeddings import load_precomputed_embeddings
+    from .embeddings import load_precomputed_embeddings
 
     if args.table4:
         clip_data = load_precomputed_embeddings(args.embeddings_path, 'clip-vit-b32')

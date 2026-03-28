@@ -8,7 +8,6 @@ the year with highest similarity score.
 """
 
 import os
-import sys
 import argparse
 import time
 import csv
@@ -17,11 +16,9 @@ import torch
 from tqdm import tqdm
 from PIL import Image
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from models.model_loader import load_model, is_clip_family
-from utils.metrics import calculate_TAI, mean_absolute_error, print_evaluation_summary
-from utils.prompts import get_prompt_templates
+from ..models.model_loader import load_model, is_clip_family
+from ..utils.metrics import calculate_TAI, mean_absolute_error, print_evaluation_summary
+from ..utils.prompts import get_prompt_templates
 
 
 class TimeProbing:
@@ -225,7 +222,7 @@ def main():
 
     if args.embeddings_path:
         # Use precomputed embeddings
-        from evaluation.embeddings import load_precomputed_embeddings
+        from .embeddings import load_precomputed_embeddings
         data = load_precomputed_embeddings(args.embeddings_path, args.model)
 
         evaluator = TimeProbing(args.model, args.device)
@@ -238,7 +235,7 @@ def main():
         )
     else:
         # Load dataset and evaluate
-        from data.dataset import TIME10kDataset
+        from ..data.dataset import TIME10kDataset
         csv_path = args.csv if os.path.exists(args.csv) else None
         dataset = TIME10kDataset(args.data_path, csv_path=csv_path)
 

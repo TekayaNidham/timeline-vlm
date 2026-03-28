@@ -11,8 +11,6 @@ Key parameters from paper (Section 5.3):
 - Optimization: TPE via Optuna, maximizing Spearman's rank correlation
 """
 
-import os
-import sys
 import argparse
 import time
 import numpy as np
@@ -20,11 +18,9 @@ from scipy.stats import spearmanr, kendalltau
 import umap
 from tabulate import tabulate
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from utils.metrics import (calculate_TAI, mean_absolute_error,
-                           evaluate_chronological_order, compute_ranking_metrics,
-                           print_evaluation_summary)
+from ..utils.metrics import (calculate_TAI, mean_absolute_error,
+                             evaluate_chronological_order, compute_ranking_metrics,
+                             print_evaluation_summary)
 
 
 # Paper-optimized parameters (Section 5.3)
@@ -215,7 +211,7 @@ def main():
 
     args = parser.parse_args()
 
-    from evaluation.embeddings import load_precomputed_embeddings
+    from .embeddings import load_precomputed_embeddings
     data = load_precomputed_embeddings(args.embeddings_path, args.model)
 
     # Fit timeline

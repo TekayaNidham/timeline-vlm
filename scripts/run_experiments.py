@@ -27,7 +27,6 @@ Usage (run from repo root):
 """
 
 import os
-import sys
 import argparse
 import json
 import yaml
@@ -37,11 +36,10 @@ from datetime import datetime
 from pathlib import Path
 from tabulate import tabulate
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from models.model_loader import get_available_models, MODEL_REGISTRY
-from utils.prompts import get_prompt_templates
-from utils.metrics import (print_evaluation_summary, calculate_mae_per_class,
+from timeline_vlm.models.model_loader import get_available_models, MODEL_REGISTRY
+from timeline_vlm.utils.prompts import get_prompt_templates
+from timeline_vlm.utils.metrics import (print_evaluation_summary, calculate_mae_per_class,
                            mean_absolute_error, calculate_TAI)
 
 
@@ -64,8 +62,8 @@ class ExperimentRunner:
         if not cfg.get('enabled', True):
             return
 
-        from evaluation.time_probing import TimeProbing
-        from evaluation.embeddings import load_precomputed_embeddings
+        from timeline_vlm.evaluation.time_probing import TimeProbing
+        from timeline_vlm.evaluation.embeddings import load_precomputed_embeddings
 
         models = cfg.get('models', ['clip-vit-b32'])
         prompt_id = cfg.get('prompt', 'P7')
@@ -95,7 +93,7 @@ class ExperimentRunner:
                         time_emb, data['timeline_years'],
                     )
                 else:
-                    from data.dataset import TIME10kDataset
+                    from timeline_vlm.data.dataset import TIME10kDataset
                     dataset = TIME10kDataset(
                         self.config.get('data_path', 'data/TIME10k'),
                         csv_path=self.config.get('csv_path', 'data/time10k.csv'),
@@ -129,8 +127,8 @@ class ExperimentRunner:
         if not cfg.get('enabled', False):
             return
 
-        from evaluation.time_probing import TimeProbing
-        from evaluation.embeddings import load_precomputed_embeddings
+        from timeline_vlm.evaluation.time_probing import TimeProbing
+        from timeline_vlm.evaluation.embeddings import load_precomputed_embeddings
 
         models = cfg.get('models', ['clip-vit-b32', 'eva-clip-l14-336'])
         prompt_ids = cfg.get('prompts', [f'P{i}' for i in range(1, 10)])
@@ -179,8 +177,8 @@ class ExperimentRunner:
         if not cfg.get('enabled', False):
             return
 
-        from evaluation.embedding_space import generate_table4
-        from evaluation.embeddings import load_precomputed_embeddings
+        from timeline_vlm.evaluation.embedding_space import generate_table4
+        from timeline_vlm.evaluation.embeddings import load_precomputed_embeddings
 
         embeddings_path = cfg.get('embeddings_path', 'encodings')
 
@@ -209,10 +207,10 @@ class ExperimentRunner:
         if not cfg.get('enabled', False):
             return
 
-        from evaluation.time_probing import TimeProbing
-        from evaluation.timeline_umap import UMAPTimeline
-        from evaluation.timeline_bezier import BezierTimeline
-        from evaluation.embeddings import load_precomputed_embeddings
+        from timeline_vlm.evaluation.time_probing import TimeProbing
+        from timeline_vlm.evaluation.timeline_umap import UMAPTimeline
+        from timeline_vlm.evaluation.timeline_bezier import BezierTimeline
+        from timeline_vlm.evaluation.embeddings import load_precomputed_embeddings
 
         models = cfg.get('models', ['clip-vit-b32'])
         embeddings_path = cfg.get('embeddings_path', 'encodings')
@@ -300,8 +298,8 @@ class ExperimentRunner:
         if not cfg.get('enabled', False):
             return
 
-        from evaluation.embedding_space import analyze_dimension_sweep
-        from evaluation.embeddings import load_precomputed_embeddings
+        from timeline_vlm.evaluation.embedding_space import analyze_dimension_sweep
+        from timeline_vlm.evaluation.embeddings import load_precomputed_embeddings
 
         embeddings_path = cfg.get('embeddings_path', 'encodings')
         max_dim = cfg.get('max_dim', 50)

@@ -28,22 +28,18 @@ Usage:
     timeline_years = predictor.timeline_years
     timeline_quality = predictor.timeline_quality
 
-    # Generate embeddings for a new model
+    # Generate embeddings from scratch (requires model installed)
     predictor = TimelinePredictor('openclip-vit-bigg14')
-    predictor.fit_from_dataset('data/TIME10k', prompt='P7')
+    predictor.fit_from_dataset(prompt='P7')
 
     # Export embeddings for reuse
     predictor.save_embeddings('my_embeddings/')
 """
 
-import os
-import sys
 import numpy as np
 import torch
 from pathlib import Path
 from PIL import Image
-
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 
 class TimelinePredictor:
@@ -70,7 +66,8 @@ class TimelinePredictor:
             bezier_method: 'interpolation' or 'nearest_neighbor'
             num_control_points: K parameter for Bézier curve
         """
-        self.model_name = model
+        from .models.model_loader import _resolve_model_name
+        self.model_name = _resolve_model_name(model)
         self.method = method
         self.device = device or ('cuda' if torch.cuda.is_available() else 'cpu')
         self.prompt_id = prompt
@@ -86,12 +83,13 @@ class TimelinePredictor:
         self._time_embeddings = None
         self._timeline_years = None
         self._timeline_quality = None
+        self._embeddings_path = None
         self._fitted = False
 
     def _ensure_model(self):
         """Lazy-load the VLM model."""
         if self._model is None:
-            from models.model_loader import load_model
+            from .models.model_loader import load_model
             self._model, self._preprocess, self._tokenizer = load_model(
                 self.model_name, self.device
             )
@@ -106,7 +104,8 @@ class TimelinePredictor:
         Returns:
             self (for chaining)
         """
-        from evaluation.embeddings import load_precomputed_embeddings
+        from .evaluation.embeddings import load_precomputed_embeddings
+        self._embeddings_path = str(embeddings_path)
         data = load_precomputed_embeddings(embeddings_path, self.model_name)
         return self._fit_timeline(data['timeline_emb'], data['timeline_years'])
 
@@ -123,24 +122,24 @@ class TimelinePredictor:
         """
         return self._fit_timeline(time_embeddings, years)
 
-    def fit_from_dataset(self, data_path, prompt=None, year_min=1700,
-                         year_max=2024):
+    def fit_from_dataset(self, prompt=None, year_min=1700, year_max=2024):
         """
         Generate time embeddings from scratch and fit timeline.
 
+        Requires the VLM model to be loadable (e.g., CLIP installed).
+
         Args:
-            data_path: Not used for time embeddings (kept for API symmetry)
-            prompt: Override prompt ID
-            year_min, year_max: Year range
+            prompt: Override prompt ID (default: P7)
+            year_min, year_max: Year range for time embeddings
 
         Returns:
             self
         """
         self._ensure_model()
-        from evaluation.embeddings import generate_time_embeddings
+        from .evaluation.embeddings import generate_time_embeddings
 
         pid = prompt or self.prompt_id
-        from utils.prompts import get_prompt_templates
+        from .utils.prompts import get_prompt_templates
         template = get_prompt_templates()[pid]
 
         years = list(range(year_min, year_max + 1))
@@ -153,13 +152,13 @@ class TimelinePredictor:
     def _fit_timeline(self, time_embeddings, years):
         """Internal: fit the chosen timeline method."""
         self._timeline_years = list(years)
+        self._time_embeddings = time_embeddings
 
         if self.method == 'time_probing':
-            self._time_embeddings = time_embeddings
             self._fitted = True
 
         elif self.method == 'umap':
-            from evaluation.timeline_umap import UMAPTimeline
+            from .evaluation.timeline_umap import UMAPTimeline
             self._timeline = UMAPTimeline()
             self._timeline_quality = self._timeline.fit(
                 time_embeddings, years, model_name=self.model_name
@@ -167,7 +166,7 @@ class TimelinePredictor:
             self._fitted = True
 
         elif self.method == 'bezier':
-            from evaluation.timeline_bezier import BezierTimeline
+            from .evaluation.timeline_bezier import BezierTimeline
             self._timeline = BezierTimeline(
                 num_control_points=self.num_control_points
             )
@@ -175,6 +174,12 @@ class TimelinePredictor:
                 time_embeddings, years, reduce_dim=self.reduce_dim
             )
             self._fitted = True
+
+        else:
+            raise ValueError(
+                f"Unknown method: '{self.method}'. "
+                f"Choose from: 'time_probing', 'umap', 'bezier'"
+            )
 
         return self
 
@@ -207,14 +212,14 @@ class TimelinePredictor:
         self._ensure_model()
 
         embeddings = self._encode_images(images)
+        return self._predict_from_embeddings(embeddings)
 
+    def _predict_from_embeddings(self, embeddings):
+        """Internal: predict years from precomputed image embeddings."""
         if self.method == 'time_probing':
-            predictions = []
-            for i in range(len(embeddings)):
-                sims = 100.0 * (embeddings[i:i+1] @ self._time_embeddings.T)
-                idx = np.argmax(sims)
-                predictions.append(self._timeline_years[idx])
-            return np.array(predictions)
+            sims = 100.0 * (embeddings @ self._time_embeddings.T)
+            indices = np.argmax(sims, axis=1)
+            return np.array([self._timeline_years[i] for i in indices])
 
         elif self.method == 'umap':
             preds, _ = self._timeline.predict(embeddings)
@@ -226,20 +231,24 @@ class TimelinePredictor:
             else:
                 return self._timeline.predict_nearest_neighbor(embeddings)
 
+        raise ValueError(f"Unknown method: '{self.method}'")
+
     def predict_with_details(self, image_or_path):
         """
         Predict with full details including confidence and timing.
 
         Returns:
-            dict with predicted_year, confidence_scores (for time_probing),
+            dict with predicted_year, top_predictions (for time_probing),
             inference_ms, method, model
         """
         import time as _time
+        if not self._fitted:
+            raise ValueError("Not fitted.")
         self._ensure_model()
 
         t0 = _time.perf_counter()
         embeddings = self._encode_images([image_or_path])
-        year = int(self.predict_batch([image_or_path])[0])
+        year = int(self._predict_from_embeddings(embeddings)[0])
         elapsed = (_time.perf_counter() - t0) * 1000
 
         result = {
@@ -250,7 +259,7 @@ class TimelinePredictor:
         }
 
         if self.method == 'time_probing':
-            sims = (100.0 * (embeddings[0:1] @ self._time_embeddings.T)).flatten()
+            sims = (100.0 * (embeddings @ self._time_embeddings.T)).flatten()
             top5 = np.argsort(sims)[::-1][:5]
             result['top_predictions'] = [
                 {'year': int(self._timeline_years[i]), 'score': float(sims[i])}
@@ -290,24 +299,10 @@ class TimelinePredictor:
         if not self._fitted:
             raise ValueError("Not fitted.")
 
-        from utils.metrics import calculate_TAI, mean_absolute_error
+        from .utils.metrics import calculate_TAI, mean_absolute_error
 
         gt = np.array(ground_truth_years)
-
-        if self.method == 'time_probing':
-            preds = []
-            for i in range(len(image_embeddings)):
-                sims = 100.0 * (image_embeddings[i:i+1] @ self._time_embeddings.T)
-                idx = np.argmax(sims)
-                preds.append(self._timeline_years[idx])
-            preds = np.array(preds)
-        elif self.method == 'umap':
-            preds, _ = self._timeline.predict(image_embeddings)
-        elif self.method == 'bezier':
-            if self.bezier_method == 'interpolation':
-                preds = self._timeline.predict_interpolation(image_embeddings)
-            else:
-                preds = self._timeline.predict_nearest_neighbor(image_embeddings)
+        preds = self._predict_from_embeddings(image_embeddings)
 
         mae = mean_absolute_error(gt, preds)
         tai = float(np.mean([calculate_TAI(p, g) for p, g in zip(preds, gt)]))
@@ -316,7 +311,7 @@ class TimelinePredictor:
 
     def save_embeddings(self, output_dir):
         """Save fitted timeline embeddings for reuse."""
-        from evaluation.embeddings import save_embeddings
+        from .evaluation.embeddings import save_embeddings
         if self._time_embeddings is not None:
             save_embeddings(self._time_embeddings, self._timeline_years,
                             output_dir, prefix='timeline')
@@ -358,9 +353,3 @@ def predict_year(image_path, model='clip-vit-b32', method='bezier',
     predictor = TimelinePredictor(model=model, method=method, device=device)
     predictor.fit_from_precomputed(embeddings_path)
     return predictor.predict(image_path)
-
-
-def get_available_models():
-    """List all 37 supported VLM models."""
-    from models.model_loader import get_available_models as _get
-    return _get()

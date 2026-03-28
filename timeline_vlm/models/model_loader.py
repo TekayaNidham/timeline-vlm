@@ -79,6 +79,77 @@ MODEL_REGISTRY = {
 }
 
 
+# ──────────────────────────────────────────────────────────────────────
+# Human-readable display names (shown in list_models() and accepted as input)
+# ──────────────────────────────────────────────────────────────────────
+MODEL_DISPLAY_NAMES = {
+    # CLIP
+    'clip-rn50':            'CLIP ResNet-50',
+    'clip-rn101':           'CLIP ResNet-101',
+    'clip-rn50x4':          'CLIP ResNet-50x4',
+    'clip-rn50x16':         'CLIP ResNet-50x16',
+    'clip-rn50x64':         'CLIP ResNet-50x64',
+    'clip-vit-b16':         'CLIP ViT-B/16',
+    'clip-vit-b32':         'CLIP ViT-B/32',
+    'clip-vit-l14':         'CLIP ViT-L/14',
+    'clip-vit-l14-336':     'CLIP ViT-L/14@336px',
+    # EVA-CLIP
+    'eva01-clip-g14':       'EVA01-CLIP-g/14',
+    'eva01-clip-g14-plus':  'EVA01-CLIP-g/14+',
+    'eva-clip-b16':         'EVA02-CLIP-B/16',
+    'eva-clip-l14':         'EVA02-CLIP-L/14',
+    'eva-clip-l14-336':     'EVA02-CLIP-L/14@336px',
+    'eva-clip-8b':          'EVA02-CLIP-E/14 (8B)',
+    'eva-clip-8b-plus':     'EVA02-CLIP-E/14+ (8B)',
+    'eva-clip-18b':         'EVA-CLIP-18B',
+    # ImageBind
+    'imagebind':            'ImageBind Huge',
+    # CoCa
+    'coca-vit-l14':         'CoCa ViT-L/14',
+    # MobileCLIP
+    'mobileclip-s1':        'MobileCLIP-S1',
+    # ViTamin
+    'vitamin-s':            'ViTamin-S',
+    'vitamin-xl-384':       'ViTamin-XL@384px',
+    # OpenCLIP
+    'openclip-rn50-quickgelu':       'OpenCLIP ResNet-50 (QuickGELU)',
+    'openclip-vit-b16-metaclip':     'MetaCLIP ViT-B/16',
+    'openclip-vit-b16-plus-240':     'OpenCLIP ViT-B/16+ @240px',
+    'openclip-vit-b16-quickgelu':    'DFN CLIP ViT-B/16 (QuickGELU)',
+    'openclip-xlm-roberta-b32':      'OpenCLIP XLM-RoBERTa ViT-B/32',
+    'openclip-vit-b32':              'OpenCLIP ViT-B/32',
+    'openclip-vit-bigg14':           'OpenCLIP ViT-bigG/14',
+    'openclip-vit-bigg14-quickgelu': 'MetaCLIP ViT-bigG/14 (QuickGELU)',
+    'openclip-vit-g14':              'OpenCLIP ViT-g/14',
+    'openclip-convnext-xxlarge':     'OpenCLIP ConvNeXt-XXL',
+    # CLIPA
+    'clipa-vit-h14-336':    'CLIPA ViT-H/14@336px',
+    # SigLIP
+    'siglip-vit-l16-384':   'SigLIP ViT-L/16@384px',
+    'siglip-so400m-384':    'SigLIP SO400M@384px',
+    'siglip-nllb-large':    'SigLIP NLLB-CLIP-Large',
+    # ViT-Lens
+    'vit-lens':             'ViT-Lens-L',
+}
+
+# Reverse lookup: display name -> model key
+_DISPLAY_TO_KEY = {v.lower(): k for k, v in MODEL_DISPLAY_NAMES.items()}
+
+
+def _resolve_model_name(name):
+    """Resolve a model name (accepts both keys and display names)."""
+    lower = name.lower()
+    if lower in MODEL_REGISTRY:
+        return lower
+    if lower in _DISPLAY_TO_KEY:
+        return _DISPLAY_TO_KEY[lower]
+    raise ValueError(
+        f"Unknown model: '{name}'\n"
+        f"Available models:\n"
+        + "\n".join(f"  {MODEL_DISPLAY_NAMES[k]}" for k in sorted(MODEL_REGISTRY.keys()))
+    )
+
+
 def load_model(model_name, device='cuda'):
     """
     Load a vision-language model by name.
@@ -94,12 +165,7 @@ def load_model(model_name, device='cuda'):
         - tokenizer(list_of_strings) -> token tensor
         - preprocess(PIL.Image) -> tensor
     """
-    model_name = model_name.lower()
-    if model_name not in MODEL_REGISTRY:
-        raise ValueError(
-            f"Unknown model: {model_name}\n"
-            f"Available: {', '.join(sorted(MODEL_REGISTRY.keys()))}"
-        )
+    model_name = _resolve_model_name(model_name)
 
     family, backbone, pretrained = MODEL_REGISTRY[model_name]
 

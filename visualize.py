@@ -23,20 +23,16 @@ Usage:
     python visualize.py distribution --embeddings_path encodings
 """
 
-import os
-import sys
 import argparse
 import numpy as np
 from pathlib import Path
-
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 
 def cmd_manifold(args):
     """Visualize 2D/3D embedding manifold via KPCA."""
     import matplotlib.pyplot as plt
     from sklearn.decomposition import KernelPCA
-    from evaluation.embeddings import load_precomputed_embeddings
+    from timeline_vlm.evaluation.embeddings import load_precomputed_embeddings
 
     data = load_precomputed_embeddings(args.embeddings_path, args.model)
     dim = args.dim
@@ -103,8 +99,8 @@ def cmd_timeline(args):
     import matplotlib.pyplot as plt
     from sklearn.decomposition import KernelPCA
     import umap
-    from evaluation.embeddings import load_precomputed_embeddings
-    from evaluation.timeline_umap import PAPER_PARAMS
+    from timeline_vlm.evaluation.embeddings import load_precomputed_embeddings
+    from timeline_vlm.evaluation.timeline_umap import PAPER_PARAMS
 
     data = load_precomputed_embeddings(args.embeddings_path, args.model)
     years = np.array(data['timeline_years'])
@@ -145,8 +141,8 @@ def cmd_bezier(args):
     """Visualize Bézier curve timeline in 3D."""
     import matplotlib.pyplot as plt
     from sklearn.decomposition import KernelPCA
-    from evaluation.timeline_bezier import BezierTimeline
-    from evaluation.embeddings import load_precomputed_embeddings
+    from timeline_vlm.evaluation.timeline_bezier import BezierTimeline
+    from timeline_vlm.evaluation.embeddings import load_precomputed_embeddings
 
     data = load_precomputed_embeddings(args.embeddings_path, args.model)
     years = np.array(data['timeline_years'])
@@ -205,8 +201,8 @@ def cmd_bezier(args):
 def cmd_dimension_sweep(args):
     """Plot MAE per KPCA dimension (Figure 6)."""
     import matplotlib.pyplot as plt
-    from evaluation.embedding_space import analyze_dimension_sweep
-    from evaluation.embeddings import load_precomputed_embeddings
+    from timeline_vlm.evaluation.embedding_space import analyze_dimension_sweep
+    from timeline_vlm.evaluation.embeddings import load_precomputed_embeddings
 
     models = args.models or [args.model]
     all_results = {}
@@ -247,8 +243,8 @@ def cmd_dimension_sweep(args):
 def cmd_distribution(args):
     """Visualize year distribution of predictions vs ground truth."""
     import matplotlib.pyplot as plt
-    from evaluation.embeddings import load_precomputed_embeddings
-    from evaluation.timeline_bezier import BezierTimeline
+    from timeline_vlm.evaluation.embeddings import load_precomputed_embeddings
+    from timeline_vlm.evaluation.timeline_bezier import BezierTimeline
 
     data = load_precomputed_embeddings(args.embeddings_path, args.model)
 
@@ -287,9 +283,9 @@ def cmd_predict(args):
     """Visualize prediction for a specific image on the timeline."""
     import matplotlib.pyplot as plt
     from sklearn.decomposition import KernelPCA
-    from evaluation.timeline_bezier import BezierTimeline
-    from evaluation.embeddings import load_precomputed_embeddings
-    from models.model_loader import load_model
+    from timeline_vlm.evaluation.timeline_bezier import BezierTimeline
+    from timeline_vlm.evaluation.embeddings import load_precomputed_embeddings
+    from timeline_vlm.models.model_loader import load_model
     from PIL import Image
     import torch
 
