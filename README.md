@@ -6,7 +6,6 @@
 <a href="https://arxiv.org/pdf/2510.19559" target="_blank"><img src="https://img.shields.io/badge/arXiv-2510.19559-red.svg" alt="arXiv"></a>
 <a href="https://dl.acm.org/doi/10.1145/3746027.3758163" target="_blank"><img src="https://img.shields.io/badge/paper-ACM-blue.svg" alt="Paper"></a>
 <a href="https://osf.io/4th79/?view_only=560f540a7bac4d489faf164b16109642" target="_blank"><img src="https://img.shields.io/badge/dataset-TIME10k-orange.svg" alt="Dataset"></a>
-<a href="https://huggingface.co/spaces/Nidhamtek/timeline-vlm" target="_blank"><img src="https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Demo-yellow.svg" alt="Demo"></a>
 
 ![Teaser](ressources/teaser.png)
 
@@ -16,7 +15,6 @@ Official implementation of **"A Matter of Time: Revealing the Structure of Time 
 
 ![Performance](ressources/performance_scatter.png)
 
-**Try it now:** A live demo is available on [Hugging Face Spaces](https://huggingface.co/spaces/Nidhamtek/timeline-vlm).
 
 ---
 
@@ -239,7 +237,6 @@ See [`docs/models.md`](docs/models.md) for the full list with model keys and ins
 - [arXiv Preprint](https://arxiv.org/pdf/2510.19559)
 - [Project Page](https://tekayanidham.github.io/timeline-page/)
 - [TIME10k Dataset](https://osf.io/4th79/?view_only=560f540a7bac4d489faf164b16109642)
-- [Hugging Face Demo](https://huggingface.co/spaces/Nidhamtek/timeline-vlm)
 
 ## License
 
